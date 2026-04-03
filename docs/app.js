@@ -33,6 +33,27 @@ function setConnected(connected) {
   document.getElementById('connect-btn').classList.toggle('hidden', connected);
   document.getElementById('connected-msg').classList.toggle('hidden', !connected);
   document.getElementById('submit-btn').disabled = !connected;
+  if (connected) loadCurrencies();
+}
+
+function loadCurrencies() {
+  const session = localStorage.getItem('xero_session');
+  if (!session) return;
+  fetch(`${API_URL}/currencies`, {
+    headers: { Authorization: `Bearer ${session}` },
+  })
+    .then(r => r.json())
+    .then(data => {
+      const sel = document.getElementById('currency');
+      sel.innerHTML = '';
+      (data.currencies || []).forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.Code;
+        opt.textContent = `${c.Code} - ${c.Description}`;
+        sel.appendChild(opt);
+      });
+    })
+    .catch(() => {});
 }
 
 document.getElementById('connect-btn').addEventListener('click', () => {
@@ -165,6 +186,7 @@ document.getElementById('invoice-form').addEventListener('submit', async (e) => 
     date: document.getElementById('invoice-date').value,
     dueDate: document.getElementById('due-date').value,
     reference: document.getElementById('reference').value,
+    currencyCode: document.getElementById('currency').value,
     lineItems,
   };
 

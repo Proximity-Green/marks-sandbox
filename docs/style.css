@@ -52,7 +52,16 @@ h2 { font-size: 1rem; color: #666; margin-bottom: 0.75rem; }
   font-size: 0.95rem;
 }
 
-.form-row input:focus {
+.form-row select {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  background: #fff;
+}
+
+.form-row input:focus, .form-row select:focus {
   outline: none;
   border-color: #0078c8;
   box-shadow: 0 0 0 2px rgba(0,120,200,0.15);

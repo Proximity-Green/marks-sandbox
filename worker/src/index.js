@@ -126,6 +126,29 @@ export default {
       return jsonResponse({ authenticated: !!tokenData }, 200, env);
     }
 
+    // --- Get Currencies ---
+    if (url.pathname === '/currencies' && request.method === 'GET') {
+      const sessionId = getSessionId(request);
+      if (!sessionId) return jsonResponse({ error: 'Not authenticated' }, 401, env);
+
+      let tokenData = JSON.parse(await env.TOKENS.get(`tokens:${sessionId}`) || 'null');
+      if (!tokenData) return jsonResponse({ error: 'Not authenticated' }, 401, env);
+
+      const currRes = await fetch(`${XERO_API_URL}/Currencies`, {
+        headers: {
+          Authorization: `Bearer ${tokenData.access_token}`,
+          'Xero-Tenant-Id': tokenData.tenant_id,
+        },
+      });
+
+      const result = await currRes.json();
+      if (!currRes.ok) {
+        return jsonResponse({ error: result.Message || 'Failed to fetch currencies' }, currRes.status, env);
+      }
+
+      return jsonResponse({ currencies: result.Currencies || [] }, 200, env);
+    }
+
     // --- Create Invoice ---
     if (url.pathname === '/invoice' && request.method === 'POST') {
       const sessionId = getSessionId(request);
@@ -167,6 +190,7 @@ export default {
         Date: body.date,
         DueDate: body.dueDate,
         Reference: body.reference || undefined,
+        CurrencyCode: body.currencyCode || undefined,
         LineItems: body.lineItems.map(item => ({
           Description: item.description,
           Quantity: item.quantity,
