@@ -131,7 +131,8 @@
 
 	async function handleDownloadPdf(item: Record<string, unknown>) {
 		try {
-			const blob = await downloadPdf(activeTab, getDocId(item));
+			const typeMap: Record<string, string> = { invoices: 'invoice', quotes: 'quote', purchaseorders: 'po' };
+			const blob = await downloadPdf(typeMap[activeTab] || activeTab, getDocId(item));
 			const url = URL.createObjectURL(blob);
 			const a = document.createElement('a');
 			a.href = url;

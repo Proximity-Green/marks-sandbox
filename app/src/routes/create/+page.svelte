@@ -67,10 +67,15 @@
 	let emailSubject = $state('');
 	let emailBody = $state('');
 
+	// Force reactivity on line item changes
+	let lineVersion = $state(0);
+	function touchLines() { lineVersion++; }
+
 	// Computed
-	let subtotal = $derived(
-		lineItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
-	);
+	let subtotal = $derived.by(() => {
+		void lineVersion; // depend on version counter
+		return lineItems.reduce((sum, item) => sum + Number(item.quantity) * Number(item.unitPrice), 0);
+	});
 	let tax = $derived(subtotal * 0.15);
 	let total = $derived(subtotal + tax);
 
@@ -96,6 +101,7 @@
 			newLines.push({ description: item, accountCode: docType === 'invoice' ? '200' : '', trackingCategoryId: '', trackingOptionId: '', quantity: randomInt(1, 10), unitPrice: randomInt(50, 500) });
 		}
 		lineItems = newLines;
+		touchLines();
 	}
 
 	let docTypeLabel = $derived(
@@ -127,14 +133,15 @@
 	});
 
 	function addLineItem() {
-		lineItems.push({
+		lineItems = [...lineItems, {
 			id: nextId++,
 			description: '',
 			accountCode: '',
-			tracking: {},
+			trackingCategoryId: '',
+			trackingOptionId: '',
 			quantity: 1,
 			unitPrice: 0
-		});
+		}];
 	}
 
 	function removeLineItem(index: number) {
@@ -655,6 +662,7 @@
 											<input
 												type="number"
 												bind:value={item.quantity}
+												oninput={touchLines}
 												min="0"
 												step="1"
 												class="w-full px-2 py-1.5 border border-transparent hover:border-gray-200 focus:border-brand-300 rounded text-sm text-right focus:outline-none focus:ring-1 focus:ring-brand-500"
@@ -664,13 +672,14 @@
 											<input
 												type="number"
 												bind:value={item.unitPrice}
+												oninput={touchLines}
 												min="0"
 												step="0.01"
 												class="w-full px-2 py-1.5 border border-transparent hover:border-gray-200 focus:border-brand-300 rounded text-sm text-right focus:outline-none focus:ring-1 focus:ring-brand-500"
 											/>
 										</td>
 										<td class="px-4 py-2 text-right font-medium text-gray-700">
-											{(item.quantity * item.unitPrice).toFixed(2)}
+											{(Number(item.quantity) * Number(item.unitPrice)).toFixed(2)}
 										</td>
 										<td class="px-4 py-2">
 											<div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
