@@ -399,6 +399,7 @@ document.getElementById('invoice-form').addEventListener('submit', async (e) => 
         po: id => `https://go.xero.com/app/${sc}/purchase-orders/edit/${id}`,
       };
       document.getElementById('view-xero-btn').href = xeroUrls[data.docType](data.id);
+      document.getElementById('email-btn').onclick = () => emailDoc(data.id, data.docType);
     } else {
       document.getElementById('post-actions').classList.add('hidden');
       msg.textContent = `Error (${res.status}): ${data.error || JSON.stringify(data)}`;
@@ -415,6 +416,43 @@ document.getElementById('invoice-form').addEventListener('submit', async (e) => 
 });
 
 // --- Download PDF ---
+
+async function emailDoc(id, type) {
+  const session = localStorage.getItem('xero_session');
+  if (!session) return;
+  const contactEmail = document.getElementById('contact-email').value;
+  if (!contactEmail) {
+    alert('No contact email set — add an email to the Contact section first.');
+    return;
+  }
+  if (!confirm(`Send via Xero to ${contactEmail}?`)) return;
+  const btn = document.getElementById('email-btn');
+  btn.textContent = 'Sending...';
+  btn.disabled = true;
+  try {
+    const res = await fetch(`${API_URL}/email`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session}`,
+      },
+      body: JSON.stringify({ id, type, email: contactEmail }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      btn.textContent = 'Sent!';
+      setTimeout(() => { btn.textContent = 'Email'; btn.disabled = false; }, 2000);
+    } else {
+      alert('Email failed: ' + (data.error || 'Unknown error'));
+      btn.textContent = 'Email';
+      btn.disabled = false;
+    }
+  } catch (err) {
+    alert('Email failed: ' + err.message);
+    btn.textContent = 'Email';
+    btn.disabled = false;
+  }
+}
 
 async function downloadPDF(id, type) {
   const session = localStorage.getItem('xero_session');

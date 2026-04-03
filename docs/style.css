@@ -238,6 +238,14 @@ td select {
 
 .btn-open-xero:hover { background: #0fa3d4; }
 
+.btn-email {
+  background: #6f42c1;
+  color: #fff;
+  font-weight: 500;
+}
+
+.btn-email:hover { background: #5a32a3; }
+
 .btn {
   padding: 0.6rem 1.2rem;
   border: none;

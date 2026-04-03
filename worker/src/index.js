@@ -437,6 +437,45 @@ export default {
       });
     }
 
+    // --- Email Document ---
+    if (url.pathname === '/email' && request.method === 'POST') {
+      const tokenData = await getTokenData(request, env);
+      if (!tokenData) return jsonResponse({ error: 'Not authenticated' }, 401, env, request);
+
+      const body = await request.json();
+      const { id, type, email } = body;
+      if (!id || !type || !email) return jsonResponse({ error: 'Missing id, type, or email' }, 400, env, request);
+
+      const endpoints = { invoice: 'Invoices', quote: 'Quotes', po: 'PurchaseOrders' };
+      const ep = endpoints[type];
+      if (!ep) return jsonResponse({ error: 'Invalid type' }, 400, env, request);
+
+      // For invoices: update contact email then use Xero's email endpoint
+      // For quotes/POs: same approach
+      const emailRes = await fetch(`${XERO_API_URL}/${ep}/${id}/Email`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${tokenData.access_token}`,
+          'Content-Type': 'application/json',
+          'Xero-Tenant-Id': tokenData.tenant_id,
+        },
+        body: JSON.stringify({}),
+      });
+
+      if (!emailRes.ok) {
+        let errMsg = 'Failed to email';
+        try {
+          const errData = await emailRes.json();
+          errMsg = errData.Message || JSON.stringify(errData);
+        } catch (e) {
+          errMsg = await emailRes.text();
+        }
+        return jsonResponse({ error: errMsg }, emailRes.status, env, request);
+      }
+
+      return jsonResponse({ success: true }, 200, env, request);
+    }
+
     return jsonResponse({ error: 'Not found' }, 404, env, request);
   },
 };
