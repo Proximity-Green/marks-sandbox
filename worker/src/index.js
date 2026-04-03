@@ -133,18 +133,20 @@ export default {
       const connections = await connRes.json();
       const tenantId = connections[0]?.tenantId;
 
-      // Get org short code
+      // Get org short code (best effort)
       let shortCode = '';
-      const orgRes = await fetch(`${XERO_API_URL}/Organisation`, {
-        headers: {
-          Authorization: `Bearer ${tokens.access_token}`,
-          'Xero-Tenant-Id': tenantId,
-        },
-      });
-      if (orgRes.ok) {
-        const orgData = await orgRes.json();
-        shortCode = orgData.Organisations?.[0]?.ShortCode || '';
-      }
+      try {
+        const orgRes = await fetch(`${XERO_API_URL}/Organisation`, {
+          headers: {
+            Authorization: `Bearer ${tokens.access_token}`,
+            'Xero-Tenant-Id': tenantId,
+          },
+        });
+        if (orgRes.ok) {
+          const orgData = await orgRes.json();
+          shortCode = orgData.Organisations?.[0]?.ShortCode || '';
+        }
+      } catch (e) { /* ignore */ }
 
       await env.TOKENS.put(`tokens:${sessionId}`, JSON.stringify({
         access_token: tokens.access_token,

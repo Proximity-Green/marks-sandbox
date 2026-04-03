@@ -32,15 +32,9 @@ document.querySelectorAll('.tab').forEach(tab => {
     document.getElementById('date-label').textContent = cfg.dateLabel;
     document.getElementById('due-label').textContent = cfg.dueLabel;
     document.getElementById('submit-btn').textContent = cfg.submitLabel;
-    document.getElementById('authorise-row').style.display = docType === 'invoice' ? '' : 'none';
-    document.getElementById('authorise').checked = false;
   });
 });
 
-document.getElementById('authorise').addEventListener('change', (e) => {
-  const btn = document.getElementById('submit-btn');
-  btn.textContent = e.target.checked ? 'Submit & Authorise Invoice' : DOC_CONFIG[docType].submitLabel;
-});
 
 // --- Document List ---
 
@@ -330,7 +324,7 @@ document.getElementById('invoice-form').addEventListener('submit', async (e) => 
     dueDate: toISODate(document.getElementById('due-date').value),
     reference: document.getElementById('reference').value,
     currencyCode: document.getElementById('currency').value,
-    authorise: docType === 'invoice' && document.getElementById('authorise').checked,
+    authorise: false,
     lineItems,
   };
 
