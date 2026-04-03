@@ -92,6 +92,33 @@ function updateTotals() {
   document.getElementById('total').textContent = `$${subtotal.toFixed(2)}`;
 }
 
+// --- Random Test Data ---
+
+const RANDOM_NAMES = ['Acme Corp', 'Globex Inc', 'Initech', 'Umbrella Ltd', 'Stark Industries', 'Wayne Enterprises', 'Oscorp', 'Cyberdyne Systems'];
+const RANDOM_ITEMS = ['Web Development', 'Consulting', 'Design Services', 'Server Hosting', 'SEO Audit', 'Logo Design', 'App Development', 'Data Migration', 'Training Workshop', 'Support Package'];
+
+function randomPick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function randomInt(min, max) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+
+document.getElementById('random-btn').addEventListener('click', () => {
+  const name = randomPick(RANDOM_NAMES);
+  document.getElementById('contact-name').value = name;
+  document.getElementById('contact-email').value = name.toLowerCase().replace(/\s+/g, '.') + '@example.com';
+  document.getElementById('reference').value = 'INV-' + randomInt(1000, 9999);
+
+  // Clear existing lines
+  document.querySelector('#line-items tbody').innerHTML = '';
+  const numLines = randomInt(1, 4);
+  const usedItems = new Set();
+  for (let i = 0; i < numLines; i++) {
+    let item;
+    do { item = randomPick(RANDOM_ITEMS); } while (usedItems.has(item));
+    usedItems.add(item);
+    addLine(item, randomInt(1, 10), randomInt(50, 500));
+  }
+  updateTotals();
+});
+
 // --- Set defaults ---
 
 function init() {
