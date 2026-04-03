@@ -51,7 +51,7 @@
 	let nextId = $state(2);
 
 	let lineItems: LineItem[] = $state([
-		{ id: 1, description: '', accountCode: '', trackingCategoryId: '', trackingOptionId: '', quantity: 1, unitPrice: 0 }
+		{ id: 1, description: '', accountCode: '2000', trackingCategoryId: '', trackingOptionId: '', quantity: 1, unitPrice: 0 }
 	]);
 
 	let submitting = $state(false);
@@ -66,6 +66,10 @@
 	let emailTo = $state('');
 	let emailSubject = $state('');
 	let emailBody = $state('');
+
+	function fmt(n: number): string {
+		return n.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+	}
 
 	// Totals - simple state updated on every change
 	let subtotal = $state(0);
@@ -104,7 +108,7 @@
 			let desc: string;
 			do { desc = randomPick(RANDOM_ITEMS); } while (usedItems.has(desc));
 			usedItems.add(desc);
-			newLines.push({ id: nextId++, description: desc, accountCode: docType === 'invoice' ? '200' : '', trackingCategoryId: '', trackingOptionId: '', quantity: randomInt(1, 10), unitPrice: randomInt(50, 500) });
+			newLines.push({ id: nextId++, description: desc, accountCode: '2000', trackingCategoryId: '', trackingOptionId: '', quantity: randomInt(1, 10), unitPrice: randomInt(50, 500) });
 		}
 		lineItems = newLines;
 		recalc();
@@ -376,12 +380,12 @@
 		{/if}
 		<!-- Create form -->
 		<div class="mb-6">
-			<h1 class="text-2xl font-bold text-gray-900 mb-1">Create Document</h1>
-			<p class="text-gray-500">Fill in the details below to create a new document in Xero.</p>
+			<h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-1">Create Document</h1>
+			<p class="text-gray-500 dark:text-gray-400">Fill in the details below to create a new document in Xero.</p>
 		</div>
 
 		<!-- Doc type tabs -->
-		<div class="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit mb-8">
+		<div class="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-xl p-1 w-fit mb-8">
 			{#each [
 				{ value: 'invoice', label: 'Invoice' },
 				{ value: 'quote', label: 'Quote' },
@@ -452,8 +456,8 @@
 			<!-- Left column: Details -->
 			<div class="lg:col-span-1 space-y-6">
 				<!-- Contact -->
-				<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-					<h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4">Contact</h3>
+				<div class="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-5">
+					<h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide mb-4">Contact</h3>
 					<div class="space-y-3">
 						<div>
 							<label for="contact-name" class="block text-sm font-medium text-gray-700 mb-1">Name <span class="text-red-500">*</span></label>
@@ -479,8 +483,8 @@
 				</div>
 
 				<!-- Details -->
-				<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-					<h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4">Details</h3>
+				<div class="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 p-5">
+					<h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide mb-4">Details</h3>
 					<div class="space-y-3">
 						<div>
 							<label for="doc-date" class="block text-sm font-medium text-gray-700 mb-1">Date</label>
@@ -512,26 +516,6 @@
 					</div>
 				</div>
 
-				<!-- Totals -->
-				<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
-					<h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wide mb-4">Totals</h3>
-					<div class="space-y-2 text-sm">
-						<div class="flex justify-between text-gray-600">
-							<span>Subtotal</span>
-							<span>{currency} {subtotal.toFixed(2)}</span>
-						</div>
-						<div class="flex justify-between text-gray-600">
-							<span>Tax (15%)</span>
-							<span>{currency} {tax.toFixed(2)}</span>
-						</div>
-						<div class="border-t border-gray-100 pt-2 mt-2">
-							<div class="flex justify-between font-semibold text-gray-900 text-base">
-								<span>Total</span>
-								<span>{currency} {total.toFixed(2)}</span>
-							</div>
-						</div>
-					</div>
-				</div>
 
 
 				</div>
@@ -563,8 +547,8 @@
 										<th class="px-4 py-3 w-32">{cat.name}</th>
 									{/each}
 									<th class="px-4 py-3 w-20 text-right">Qty</th>
-									<th class="px-4 py-3 w-28 text-right">Unit Price</th>
-									<th class="px-4 py-3 w-28 text-right">Amount</th>
+									<th class="px-4 py-3 w-36 text-right">Unit Price</th>
+									<th class="px-4 py-3 w-36 text-right">Amount</th>
 									<th class="px-4 py-3 w-24"></th>
 								</tr>
 							</thead>
@@ -622,7 +606,7 @@
 											/>
 										</td>
 										<td class="px-4 py-2 text-right font-medium text-gray-700">
-											{(Number(item.quantity) * Number(item.unitPrice)).toFixed(2)}
+											{fmt(Number(item.quantity) * Number(item.unitPrice))}
 										</td>
 										<td class="px-4 py-2">
 											<div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -674,6 +658,26 @@
 							</svg>
 							Add another line item
 						</button>
+					</div>
+
+					<!-- Totals -->
+					<div class="px-5 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-b-xl">
+						<div class="max-w-xs ml-auto space-y-1.5 text-sm">
+							<div class="flex justify-between text-gray-600 dark:text-gray-400">
+								<span>Subtotal</span>
+								<span>{currency} {fmt(subtotal)}</span>
+							</div>
+							<div class="flex justify-between text-gray-600 dark:text-gray-400">
+								<span>Tax (15%)</span>
+								<span>{currency} {fmt(tax)}</span>
+							</div>
+							<div class="border-t border-gray-200 dark:border-gray-600 pt-1.5 mt-1.5">
+								<div class="flex justify-between font-semibold text-gray-900 dark:text-white text-base">
+									<span>Total</span>
+									<span>{currency} {fmt(total)}</span>
+								</div>
+							</div>
+						</div>
 					</div>
 				</div>
 			</div>
