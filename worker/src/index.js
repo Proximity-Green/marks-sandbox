@@ -184,6 +184,43 @@ export default {
       const body = await request.json();
       const { docType } = body;
 
+      // For POs, we need a ContactID — look up or create the contact
+      let contactRef = { Name: body.contact.name, EmailAddress: body.contact.email || undefined };
+      if (docType === 'po') {
+        // Search for existing contact
+        const searchRes = await fetch(
+          `${XERO_API_URL}/Contacts?where=Name=="${encodeURIComponent(body.contact.name)}"`,
+          {
+            headers: {
+              Authorization: `Bearer ${tokenData.access_token}`,
+              'Xero-Tenant-Id': tokenData.tenant_id,
+            },
+          }
+        );
+        const searchData = await searchRes.json();
+        let contactId = searchData.Contacts?.[0]?.ContactID;
+
+        if (!contactId) {
+          // Create the contact
+          const createRes = await fetch(`${XERO_API_URL}/Contacts`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${tokenData.access_token}`,
+              'Content-Type': 'application/json',
+              'Xero-Tenant-Id': tokenData.tenant_id,
+            },
+            body: JSON.stringify({ Contacts: [{ Name: body.contact.name, EmailAddress: body.contact.email || undefined }] }),
+          });
+          const createData = await createRes.json();
+          contactId = createData.Contacts?.[0]?.ContactID;
+        }
+
+        if (!contactId) {
+          return jsonResponse({ error: 'Could not find or create contact' }, 400, env, request);
+        }
+        contactRef = { ContactID: contactId };
+      }
+
       const lineItems = body.lineItems.map(item => {
         const li = {
           Description: item.description,
@@ -202,7 +239,7 @@ export default {
         numberField = 'InvoiceNumber';
         payload = { Invoices: [{
           Type: 'ACCREC',
-          Contact: { Name: body.contact.name, EmailAddress: body.contact.email || undefined },
+          Contact: contactRef,
           Date: body.date,
           DueDate: body.dueDate,
           Reference: body.reference || undefined,
@@ -214,7 +251,7 @@ export default {
         endpoint = 'Quotes';
         numberField = 'QuoteNumber';
         payload = { Quotes: [{
-          Contact: { Name: body.contact.name, EmailAddress: body.contact.email || undefined },
+          Contact: contactRef,
           Date: body.date,
           ExpiryDate: body.dueDate,
           Reference: body.reference || undefined,
@@ -226,7 +263,7 @@ export default {
         endpoint = 'PurchaseOrders';
         numberField = 'PurchaseOrderNumber';
         payload = { PurchaseOrders: [{
-          Contact: { Name: body.contact.name, EmailAddress: body.contact.email || undefined },
+          Contact: contactRef,
           Date: body.date,
           DeliveryDate: body.dueDate,
           Reference: body.reference || undefined,
@@ -251,26 +288,57 @@ export default {
       const result = await apiRes.json();
 
       if (!apiRes.ok) {
-        // Extract validation errors from Xero response
-        const items = result[endpoint] || [];
+        const items = result.Elements || result[endpoint] || [];
         const validationErrors = items[0]?.ValidationErrors?.map(e => e.Message) || [];
         const errorMsg = validationErrors.length
-          ? validationErrors.join('; ')
+          ? validationErrors.join('\n')
           : result.Message || JSON.stringify(result);
         return jsonResponse({ error: errorMsg }, apiRes.status, env, request);
       }
 
       const items = result[endpoint] || [];
       const created = items[0];
+      const idField = { Invoices: 'InvoiceID', Quotes: 'QuoteID', PurchaseOrders: 'PurchaseOrderID' }[endpoint];
       return jsonResponse({
         success: true,
+        id: created?.[idField] || '',
         number: created?.[numberField] || created?.InvoiceNumber || '',
+        docType: body.docType,
       }, 200, env, request);
     }
 
-    // Legacy endpoint
-    if (url.pathname === '/invoice' && request.method === 'POST') {
-      return jsonResponse({ error: 'Use /create endpoint instead' }, 400, env, request);
+    // --- Download PDF ---
+    if (url.pathname === '/pdf' && request.method === 'GET') {
+      const tokenData = await getTokenData(request, env);
+      if (!tokenData) return jsonResponse({ error: 'Not authenticated' }, 401, env, request);
+
+      const docId = url.searchParams.get('id');
+      const type = url.searchParams.get('type');
+      if (!docId || !type) return jsonResponse({ error: 'Missing id or type' }, 400, env, request);
+
+      const endpoints = { invoice: 'Invoices', quote: 'Quotes', po: 'PurchaseOrders' };
+      const ep = endpoints[type];
+      if (!ep) return jsonResponse({ error: 'Invalid type' }, 400, env, request);
+
+      const pdfRes = await fetch(`${XERO_API_URL}/${ep}/${docId}`, {
+        headers: {
+          Authorization: `Bearer ${tokenData.access_token}`,
+          'Xero-Tenant-Id': tokenData.tenant_id,
+          Accept: 'application/pdf',
+        },
+      });
+
+      if (!pdfRes.ok) {
+        return jsonResponse({ error: 'Failed to download PDF' }, pdfRes.status, env, request);
+      }
+
+      return new Response(pdfRes.body, {
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `attachment; filename="${type}-${docId}.pdf"`,
+          ...corsHeaders(env, request),
+        },
+      });
     }
 
     return jsonResponse({ error: 'Not found' }, 404, env, request);

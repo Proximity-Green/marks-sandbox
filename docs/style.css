@@ -162,6 +162,14 @@ td:nth-child(4) { text-align: right; font-weight: 500; color: #333; padding-top:
 
 .btn-remove:hover { color: #e55; }
 
+.btn-download {
+  background: #28a745;
+  color: #fff;
+  font-weight: 500;
+}
+
+.btn-download:hover { background: #218838; }
+
 .btn {
   padding: 0.6rem 1.2rem;
   border: none;

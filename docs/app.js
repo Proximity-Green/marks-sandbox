@@ -248,7 +248,11 @@ document.getElementById('invoice-form').addEventListener('submit', async (e) => 
     if (res.ok) {
       msg.textContent = `${docLabels[docType]} ${data.number || ''} created successfully!`;
       msg.className = 'success';
+      const dlBtn = document.getElementById('download-btn');
+      dlBtn.classList.remove('hidden');
+      dlBtn.onclick = () => downloadPDF(data.id, data.docType);
     } else {
+      document.getElementById('download-btn').classList.add('hidden');
       msg.textContent = `Error (${res.status}): ${data.error || JSON.stringify(data)}`;
       msg.className = 'error';
     }
@@ -261,5 +265,25 @@ document.getElementById('invoice-form').addEventListener('submit', async (e) => 
   btn.disabled = false;
   btn.textContent = DOC_CONFIG[docType].submitLabel;
 });
+
+async function downloadPDF(id, type) {
+  const session = localStorage.getItem('xero_session');
+  if (!session) return;
+  try {
+    const res = await fetch(`${API_URL}/pdf?id=${id}&type=${type}`, {
+      headers: { Authorization: `Bearer ${session}` },
+    });
+    if (!res.ok) throw new Error('Failed to download');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${type}-${id}.pdf`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    alert('Failed to download PDF: ' + err.message);
+  }
+}
 
 init();
