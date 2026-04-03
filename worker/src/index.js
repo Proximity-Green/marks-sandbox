@@ -184,12 +184,15 @@ export default {
       const body = await request.json();
       const { docType } = body;
 
-      const lineItems = body.lineItems.map(item => ({
-        Description: item.description,
-        Quantity: item.quantity,
-        UnitAmount: item.unitAmount,
-        AccountCode: '200',
-      }));
+      const lineItems = body.lineItems.map(item => {
+        const li = {
+          Description: item.description,
+          Quantity: item.quantity,
+          UnitAmount: item.unitAmount,
+        };
+        if (docType !== 'po') li.AccountCode = '200';
+        return li;
+      });
 
       let endpoint, payload, numberField;
 
@@ -248,7 +251,13 @@ export default {
       const result = await apiRes.json();
 
       if (!apiRes.ok) {
-        return jsonResponse({ error: result.Message || JSON.stringify(result) }, apiRes.status, env, request);
+        // Extract validation errors from Xero response
+        const items = result[endpoint] || [];
+        const validationErrors = items[0]?.ValidationErrors?.map(e => e.Message) || [];
+        const errorMsg = validationErrors.length
+          ? validationErrors.join('; ')
+          : result.Message || JSON.stringify(result);
+        return jsonResponse({ error: errorMsg }, apiRes.status, env, request);
       }
 
       const items = result[endpoint] || [];
