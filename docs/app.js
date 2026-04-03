@@ -200,7 +200,7 @@ function addLine(desc = '', qty = 1, price = 0) {
     <td><input type="number" class="line-qty" value="${qty}" min="0" step="1"></td>
     <td><input type="number" class="line-price" value="${price}" min="0" step="0.01"></td>
     <td class="line-amount">ZAR 0.00</td>
-    <td><button type="button" class="btn-remove">&times;</button></td>
+    <td><button type="button" class="btn-move btn-up" title="Move up">&uarr;</button><button type="button" class="btn-move btn-down" title="Move down">&darr;</button><button type="button" class="btn-remove">&times;</button></td>
   `;
   tbody.appendChild(tr);
   updateTotals();
@@ -212,12 +212,15 @@ document.getElementById('add-line').addEventListener('click', () => addLine());
 document.getElementById('line-items').addEventListener('input', updateTotals);
 
 document.getElementById('line-items').addEventListener('click', (e) => {
+  const tr = e.target.closest('tr');
+  if (!tr) return;
+  const tbody = document.querySelector('#line-items tbody');
   if (e.target.classList.contains('btn-remove')) {
-    const tbody = document.querySelector('#line-items tbody');
-    if (tbody.children.length > 1) {
-      e.target.closest('tr').remove();
-      updateTotals();
-    }
+    if (tbody.children.length > 1) { tr.remove(); updateTotals(); }
+  } else if (e.target.classList.contains('btn-up')) {
+    if (tr.previousElementSibling) { tbody.insertBefore(tr, tr.previousElementSibling); }
+  } else if (e.target.classList.contains('btn-down')) {
+    if (tr.nextElementSibling) { tbody.insertBefore(tr.nextElementSibling, tr); }
   }
 });
 
@@ -308,7 +311,7 @@ document.getElementById('invoice-form').addEventListener('submit', async (e) => 
   btn.disabled = true;
   btn.textContent = 'Submitting...';
   msg.classList.add('hidden');
-  document.getElementById('download-btn').classList.add('hidden');
+  document.getElementById('post-actions').classList.add('hidden');
 
   const lineItems = [];
   document.querySelectorAll('#line-items tbody tr').forEach(tr => {
@@ -350,11 +353,18 @@ document.getElementById('invoice-form').addEventListener('submit', async (e) => 
     if (res.ok) {
       msg.textContent = `${docLabels[docType]} ${data.number || ''} created successfully!`;
       msg.className = 'success';
-      const dlBtn = document.getElementById('download-btn');
-      dlBtn.classList.remove('hidden');
-      dlBtn.onclick = () => downloadPDF(data.id, data.docType);
+      const actions = document.getElementById('post-actions');
+      actions.classList.remove('hidden');
+      document.getElementById('download-btn').onclick = () => downloadPDF(data.id, data.docType);
+      const sc = localStorage.getItem('xero_short_code') || '';
+      const xeroUrls = {
+        invoice: id => `https://go.xero.com/app/${sc}/invoicing/view/${id}`,
+        quote: id => `https://go.xero.com/app/${sc}/quotes/view/${id}`,
+        po: id => `https://go.xero.com/app/${sc}/purchase-orders/edit/${id}`,
+      };
+      document.getElementById('view-xero-btn').href = xeroUrls[data.docType](data.id);
     } else {
-      document.getElementById('download-btn').classList.add('hidden');
+      document.getElementById('post-actions').classList.add('hidden');
       msg.textContent = `Error (${res.status}): ${data.error || JSON.stringify(data)}`;
       msg.className = 'error';
     }

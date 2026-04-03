@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Xero Documents</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📄</text></svg>">
-  <link rel="stylesheet" href="style.css?v=20260403d">
+  <link rel="stylesheet" href="style.css?v=20260403e">
 </head>
 <body>
   <div class="container-wide">
@@ -82,7 +82,10 @@
             <button type="button" id="random-btn" class="btn btn-secondary" style="width:100%;margin-bottom:0.5rem;">Fill Random Test Data</button>
             <button type="submit" id="submit-btn" class="btn btn-primary" disabled>Submit Draft Invoice to Xero</button>
             <div id="status-msg" class="hidden"></div>
-            <button type="button" id="download-btn" class="btn btn-download hidden" style="width:100%;margin-top:0.5rem;">Download PDF</button>
+            <div id="post-actions" class="post-actions hidden">
+              <button type="button" id="download-btn" class="btn btn-download">Download PDF</button>
+              <a id="view-xero-btn" class="btn btn-open-xero" href="#" target="_blank">View in Xero</a>
+            </div>
           </div>
 
           <div class="form-right">
@@ -133,6 +136,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=20260403d"></script>
+  <script src="app.js?v=20260403e"></script>
 </body>
 </html>
