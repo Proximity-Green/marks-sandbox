@@ -50,8 +50,10 @@ function loadCurrencies() {
         const opt = document.createElement('option');
         opt.value = c.Code;
         opt.textContent = `${c.Code} - ${c.Description}`;
+        if (c.Code === 'ZAR') opt.selected = true;
         sel.appendChild(opt);
       });
+      if (!sel.value) sel.value = 'ZAR';
     })
     .catch(() => {});
 }
