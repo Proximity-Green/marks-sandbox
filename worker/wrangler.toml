@@ -1,0 +1,14 @@
+name = "xero-invoice-worker"
+main = "src/index.js"
+compatibility_date = "2024-01-01"
+
+[vars]
+FRONTEND_URL = "https://proximity-green.github.io/marks-sandbox"
+
+# Set these as secrets via: wrangler secret put XERO_CLIENT_ID, etc.
+# XERO_CLIENT_ID
+# XERO_CLIENT_SECRET
+
+[[kv_namespaces]]
+binding = "TOKENS"
+id = ""  # Will be filled after `wrangler kv namespace create TOKENS`
