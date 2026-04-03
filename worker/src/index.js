@@ -31,6 +31,36 @@ function generateSessionId() {
   return crypto.randomUUID().replace(/-/g, '');
 }
 
+async function safeJson(res) {
+  const text = await res.text();
+  if (!text) return {};
+  try { return JSON.parse(text); } catch { return { Message: text }; }
+}
+
+async function xeroFetch(url, options, tokenData) {
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      Authorization: `Bearer ${tokenData.access_token}`,
+      'Xero-Tenant-Id': tokenData.tenant_id,
+      ...(options?.headers || {}),
+    },
+  });
+  if (res.status === 429) {
+    const retryAfter = res.headers.get('Retry-After') || '60';
+    return { _rateLimited: true, _retryAfter: parseInt(retryAfter), _status: 429 };
+  }
+  const data = await safeJson(res);
+  data._status = res.status;
+  data._ok = res.ok;
+  // Capture rate limit headers
+  data._rateLimit = {
+    remaining: res.headers.get('X-MinLimit-Remaining'),
+    appRemaining: res.headers.get('X-AppMinLimit-Remaining'),
+  };
+  return data;
+}
+
 async function getTokenData(request, env) {
   const sessionId = getSessionId(request);
   if (!sessionId) return null;
@@ -70,6 +100,9 @@ export default {
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: corsHeaders(env, request) });
     }
+
+    try {
+    // Main handler - wrapped in try/catch for unhandled errors
 
     // --- OAuth: Start connection ---
     if (url.pathname === '/auth/connect') {
@@ -176,6 +209,25 @@ export default {
       const raw = await env.TOKENS.get(`tokens:${sessionId}`);
       if (!raw) return jsonResponse({ authenticated: false }, 200, env, request);
       const tokenData = JSON.parse(raw);
+
+      // Fetch org info if missing
+      if (!tokenData.org_name && tokenData.access_token && tokenData.tenant_id) {
+        try {
+          const orgRes = await fetch(`${XERO_API_URL}/Organisation`, {
+            headers: {
+              Authorization: `Bearer ${tokenData.access_token}`,
+              'Xero-Tenant-Id': tokenData.tenant_id,
+            },
+          });
+          if (orgRes.ok) {
+            const orgData = await safeJson(orgRes);
+            tokenData.org_name = orgData.Organisations?.[0]?.Name || '';
+            tokenData.short_code = orgData.Organisations?.[0]?.ShortCode || tokenData.short_code || '';
+            await env.TOKENS.put(`tokens:${sessionId}`, JSON.stringify(tokenData), { expirationTtl: 86400 });
+          }
+        } catch (e) { /* ignore */ }
+      }
+
       return jsonResponse({ authenticated: true, shortCode: tokenData.short_code || '', orgName: tokenData.org_name || '' }, 200, env, request);
     }
 
@@ -184,17 +236,9 @@ export default {
       const tokenData = await getTokenData(request, env);
       if (!tokenData) return jsonResponse({ error: 'Not authenticated' }, 401, env, request);
 
-      const currRes = await fetch(`${XERO_API_URL}/Currencies`, {
-        headers: {
-          Authorization: `Bearer ${tokenData.access_token}`,
-          'Xero-Tenant-Id': tokenData.tenant_id,
-        },
-      });
-
-      const result = await currRes.json();
-      if (!currRes.ok) {
-        return jsonResponse({ error: result.Message || 'Failed to fetch currencies' }, currRes.status, env, request);
-      }
+      const result = await xeroFetch(`${XERO_API_URL}/Currencies`, {}, tokenData);
+      if (result._rateLimited) return jsonResponse({ error: `Rate limited. Try again in ${result._retryAfter}s.` }, 429, env, request);
+      if (!result._ok) return jsonResponse({ error: result.Message || 'Failed to fetch currencies' }, result._status, env, request);
 
       return jsonResponse({ currencies: result.Currencies || [] }, 200, env, request);
     }
@@ -204,17 +248,9 @@ export default {
       const tokenData = await getTokenData(request, env);
       if (!tokenData) return jsonResponse({ error: 'Not authenticated' }, 401, env, request);
 
-      const res = await fetch(`${XERO_API_URL}/Accounts?where=Status=="ACTIVE"&order=Code`, {
-        headers: {
-          Authorization: `Bearer ${tokenData.access_token}`,
-          'Xero-Tenant-Id': tokenData.tenant_id,
-        },
-      });
-
-      const result = await res.json();
-      if (!res.ok) {
-        return jsonResponse({ error: result.Message || 'Failed to fetch accounts' }, res.status, env, request);
-      }
+      const result = await xeroFetch(`${XERO_API_URL}/Accounts?where=Status=="ACTIVE"&order=Code`, {}, tokenData);
+      if (result._rateLimited) return jsonResponse({ error: `Rate limited. Try again in ${result._retryAfter}s.` }, 429, env, request);
+      if (!result._ok) return jsonResponse({ error: result.Message || 'Failed to fetch accounts' }, result._status, env, request);
 
       const accounts = (result.Accounts || []).map(a => ({
         code: a.Code,
@@ -230,17 +266,9 @@ export default {
       const tokenData = await getTokenData(request, env);
       if (!tokenData) return jsonResponse({ error: 'Not authenticated' }, 401, env, request);
 
-      const res = await fetch(`${XERO_API_URL}/TrackingCategories`, {
-        headers: {
-          Authorization: `Bearer ${tokenData.access_token}`,
-          'Xero-Tenant-Id': tokenData.tenant_id,
-        },
-      });
-
-      const result = await res.json();
-      if (!res.ok) {
-        return jsonResponse({ error: result.Message || 'Failed to fetch tracking' }, res.status, env, request);
-      }
+      const result = await xeroFetch(`${XERO_API_URL}/TrackingCategories`, {}, tokenData);
+      if (result._rateLimited) return jsonResponse({ error: `Rate limited. Try again in ${result._retryAfter}s.` }, 429, env, request);
+      if (!result._ok) return jsonResponse({ error: result.Message || 'Failed to fetch tracking' }, result._status, env, request);
 
       const categories = (result.TrackingCategories || []).map(c => ({
         id: c.TrackingCategoryID,
@@ -267,16 +295,12 @@ export default {
       else if (type === 'quote') where = '?order=Date DESC';
       else where = '?order=Date DESC';
 
-      const listRes = await fetch(`${XERO_API_URL}/${ep}${where}`, {
-        headers: {
-          Authorization: `Bearer ${tokenData.access_token}`,
-          'Xero-Tenant-Id': tokenData.tenant_id,
-        },
-      });
-
-      const result = await listRes.json();
-      if (!listRes.ok) {
-        return jsonResponse({ error: result.Message || 'Failed to list' }, listRes.status, env, request);
+      const result = await xeroFetch(`${XERO_API_URL}/${ep}${where}`, {}, tokenData);
+      if (result._rateLimited) {
+        return jsonResponse({ error: `Rate limited by Xero. Try again in ${result._retryAfter}s.` }, 429, env, request);
+      }
+      if (!result._ok) {
+        return jsonResponse({ error: result.Message || 'Failed to list' }, result._status, env, request);
       }
 
       const items = (result[ep] || []).map(item => ({
@@ -284,6 +308,7 @@ export default {
         number: item.InvoiceNumber || item.QuoteNumber || item.PurchaseOrderNumber || '',
         contact: item.Contact?.Name || '',
         date: item.DateString || item.Date || '',
+        updatedDateUTC: item.UpdatedDateUTC || '',
         total: item.Total || 0,
         currency: item.CurrencyCode || '',
         status: item.Status || '',
@@ -407,14 +432,19 @@ export default {
         body: JSON.stringify(payload),
       });
 
-      const result = await apiRes.json();
+      if (apiRes.status === 429) {
+        const retryAfter = apiRes.headers.get('Retry-After') || '60';
+        return jsonResponse({ error: `Rate limited by Xero. Try again in ${retryAfter}s.` }, 429, env, request);
+      }
+
+      const result = await safeJson(apiRes);
 
       if (!apiRes.ok) {
         const items = result.Elements || result[endpoint] || [];
         const validationErrors = items[0]?.ValidationErrors?.map(e => e.Message) || [];
         const errorMsg = validationErrors.length
           ? validationErrors.join('\n')
-          : result.Message || JSON.stringify(result);
+          : result.Message || 'Xero API error. Please try again.';
         return jsonResponse({ error: errorMsg }, apiRes.status, env, request);
       }
 
@@ -556,5 +586,10 @@ export default {
     }
 
     return jsonResponse({ error: 'Not found' }, 404, env, request);
+
+    } catch (err) {
+      console.error('Worker error:', err);
+      return jsonResponse({ error: err.message || 'Internal server error' }, 500, env, request);
+    }
   },
 };

@@ -108,7 +108,9 @@
 			let desc: string;
 			do { desc = randomPick(RANDOM_ITEMS); } while (usedItems.has(desc));
 			usedItems.add(desc);
-			newLines.push({ id: nextId++, description: desc, accountCode: '2000', trackingCategoryId: '', trackingOptionId: '', quantity: randomInt(1, 10), unitPrice: randomInt(50, 500) });
+			const revenueAccounts = accounts.filter(a => a.type === 'REVENUE');
+			const defaultCode = revenueAccounts.length > 0 ? randomPick(revenueAccounts).code : (accounts.length > 0 ? accounts[0].code : '2000');
+			newLines.push({ id: nextId++, description: desc, accountCode: defaultCode, trackingCategoryId: '', trackingOptionId: '', quantity: randomInt(1, 10), unitPrice: randomInt(50, 500) });
 		}
 		lineItems = newLines;
 		recalc();
@@ -130,14 +132,10 @@
 		due.setDate(due.getDate() + 30);
 		dueDate = due.toISOString().split('T')[0];
 
-		// Load currencies and tracking
-		try {
-			const [currRes, trackRes] = await Promise.all([getCurrencies(), getTracking()]);
-			currencies = currRes.currencies || [];
-			trackingCategories = trackRes.tracking || [];
-		} catch (e) {
-			console.error('Failed to load form data:', e);
-		}
+		// Load form data independently so one failure doesn't block others
+		getCurrencies().then(r => currencies = r.currencies || []).catch(e => console.error('Failed to load currencies:', e));
+		getTracking().then(r => trackingCategories = r.tracking || []).catch(e => console.error('Failed to load tracking:', e));
+		getAccounts().then(r => accounts = r.accounts || []).catch(e => console.error('Failed to load accounts:', e));
 
 		return unsub;
 	});
@@ -336,7 +334,7 @@
 			<div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
 				<div class="bg-white dark:bg-gray-900 rounded-2xl shadow-xl max-w-lg w-full p-6">
 					<div class="flex items-center justify-between mb-6">
-						<h3 class="text-lg font-semibold text-gray-900">Send PDF via Email</h3>
+						<h3 class="text-lg font-semibold text-gray-900 dark:text-white">Send PDF via Email</h3>
 						<button onclick={() => (showEmailModal = false)} class="text-gray-400 hover:text-gray-600 cursor-pointer">
 							<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 								<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -347,20 +345,20 @@
 					<div class="space-y-4">
 						<div>
 							<label for="email-to" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">To</label>
-							<input id="email-to" type="email" bind:value={emailTo} class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
+							<input id="email-to" type="email" bind:value={emailTo} class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
 						</div>
 						<div>
 							<label for="email-subject" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Subject</label>
-							<input id="email-subject" type="text" bind:value={emailSubject} class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
+							<input id="email-subject" type="text" bind:value={emailSubject} class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
 						</div>
 						<div>
 							<label for="email-body" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Message</label>
-							<textarea id="email-body" bind:value={emailBody} rows="5" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent resize-none"></textarea>
+							<textarea id="email-body" bind:value={emailBody} rows="5" class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent resize-none"></textarea>
 						</div>
 					</div>
 
 					<div class="flex justify-end gap-3 mt-6">
-						<button onclick={() => (showEmailModal = false)} class="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 rounded-lg cursor-pointer">
+						<button onclick={() => (showEmailModal = false)} class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg cursor-pointer">
 							Cancel
 						</button>
 						<button
@@ -394,8 +392,8 @@
 				<button
 					onclick={() => (docType = tab.value as DocType)}
 					class="px-5 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer {docType === tab.value
-						? 'bg-white text-gray-900 shadow-sm'
-						: 'text-gray-600 hover:text-gray-900'}"
+						? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+						: 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}"
 				>
 					{tab.label}
 				</button>
@@ -419,7 +417,7 @@
 			<button
 				onclick={fillRandomData}
 				type="button"
-				class="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 font-medium rounded-lg transition-colors cursor-pointer text-sm"
+				class="px-4 py-2.5 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-300 font-medium rounded-lg transition-colors cursor-pointer text-sm"
 			>
 				Fill Test Data
 			</button>
@@ -485,11 +483,11 @@
 					<div class="space-y-3">
 						<div>
 							<label for="doc-date" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label>
-							<input id="doc-date" type="date" bind:value={docDate} class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
+							<input id="doc-date" type="date" bind:value={docDate} class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
 						</div>
 						<div>
 							<label for="due-date" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Due Date</label>
-							<input id="due-date" type="date" bind:value={dueDate} class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
+							<input id="due-date" type="date" bind:value={dueDate} class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
 						</div>
 						<div>
 							<label for="reference" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reference</label>
@@ -503,7 +501,7 @@
 						</div>
 						<div>
 							<label for="currency" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Currency</label>
-							<select id="currency" bind:value={currency} class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white">
+							<select id="currency" bind:value={currency} class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white dark:bg-gray-800 dark:text-white">
 								<option value="ZAR">ZAR - South African Rand</option>
 								{#each currencies.filter((c) => c.code !== 'ZAR') as cur}
 									<option value={cur.code}>{cur.code} - {cur.description}</option>
@@ -519,9 +517,9 @@
 
 			<!-- Right column: Line items -->
 			<div class="lg:col-span-2">
-				<div class="bg-white rounded-xl shadow-sm border border-gray-200">
-					<div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-						<h3 class="text-sm font-semibold text-gray-900 uppercase tracking-wide">Line Items</h3>
+				<div class="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800">
+					<div class="px-5 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+						<h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">Line Items</h3>
 						<button
 							onclick={addLineItem}
 							class="flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:text-brand-700 cursor-pointer"
@@ -545,13 +543,13 @@
 									{/each}
 									<th class="px-4 py-3 w-20 text-right">Qty</th>
 									<th class="px-4 py-3 w-36 text-right">Unit Price</th>
-									<th class="px-4 py-3 w-36 text-right">Amount</th>
-									<th class="px-4 py-3 w-24"></th>
+									<th class="px-4 py-3 w-40 text-right">Amount</th>
+									<th class="px-4 py-3 w-16"></th>
 								</tr>
 							</thead>
-							<tbody class="divide-y divide-gray-50">
+							<tbody class="divide-y divide-gray-50 dark:divide-gray-800">
 								{#each lineItems as item, i (item.id)}
-									<tr class="group hover:bg-gray-50/50">
+									<tr class="group hover:bg-gray-50/50 dark:hover:bg-gray-800/50">
 										<td class="px-4 py-2 text-gray-400 text-xs">{i + 1}</td>
 										<td class="px-4 py-2">
 											<input
@@ -589,7 +587,7 @@
 												oninput={recalc}
 												min="0"
 												step="1"
-												class="w-full px-2 py-1.5 border border-transparent hover:border-gray-200 focus:border-brand-300 rounded text-sm text-right focus:outline-none focus:ring-1 focus:ring-brand-500"
+												class="w-full px-2 py-1.5 border border-transparent hover:border-gray-200 dark:hover:border-gray-600 focus:border-brand-300 rounded text-sm text-right focus:outline-none focus:ring-1 focus:ring-brand-500 dark:bg-transparent dark:text-white"
 											/>
 										</td>
 										<td class="px-4 py-2">
@@ -599,10 +597,10 @@
 												oninput={recalc}
 												min="0"
 												step="0.01"
-												class="w-full px-2 py-1.5 border border-transparent hover:border-gray-200 focus:border-brand-300 rounded text-sm text-right focus:outline-none focus:ring-1 focus:ring-brand-500"
+												class="w-full px-2 py-1.5 border border-transparent hover:border-gray-200 dark:hover:border-gray-600 focus:border-brand-300 rounded text-sm text-right focus:outline-none focus:ring-1 focus:ring-brand-500 dark:bg-transparent dark:text-white"
 											/>
 										</td>
-										<td class="px-4 py-2 text-right font-medium text-gray-700 dark:text-gray-300">
+										<td class="px-4 py-2 text-right font-medium text-gray-700 dark:text-gray-300 tabular-nums whitespace-nowrap">
 											{fmt(Number(item.quantity) * Number(item.unitPrice))}
 										</td>
 										<td class="px-4 py-2">
@@ -642,44 +640,36 @@
 									</tr>
 								{/each}
 							</tbody>
-						</table>
-					</div>
-
-					<div class="px-5 py-3 border-t border-gray-100">
-						<button
-							onclick={addLineItem}
-							class="flex items-center gap-1.5 text-sm text-gray-500 hover:text-brand-600 cursor-pointer"
-						>
-							<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-								<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-							</svg>
-							Add another line item
-						</button>
-					</div>
-
-					<!-- Totals - right aligned under Amount column -->
-					<div class="border-t border-gray-200 dark:border-gray-700">
-						<table class="w-full text-sm">
-							<tbody>
-								<tr>
-									<td></td>
-									<td class="px-4 py-2 text-right text-gray-500 dark:text-gray-400">Subtotal</td>
-									<td class="px-4 py-2 text-right text-gray-700 dark:text-gray-300 w-36">{currency} {fmt(subtotal)}</td>
-									<td class="w-24"></td>
-								</tr>
-								<tr>
-									<td></td>
-									<td class="px-4 py-2 text-right text-gray-500 dark:text-gray-400">Tax (15%)</td>
-									<td class="px-4 py-2 text-right text-gray-700 dark:text-gray-300 w-36">{currency} {fmt(tax)}</td>
-									<td class="w-24"></td>
+							<tfoot>
+								<tr class="border-t border-gray-100 dark:border-gray-800">
+									<td class="px-4 py-3" colspan="2">
+										<button
+											onclick={addLineItem}
+											class="flex items-center gap-1.5 text-sm text-gray-500 hover:text-brand-600 cursor-pointer"
+										>
+											<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+												<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+											</svg>
+											Add another line item
+										</button>
+									</td>
 								</tr>
 								<tr class="border-t border-gray-200 dark:border-gray-700">
+									<td colspan="5" class="px-4 py-2 text-right text-gray-500 dark:text-gray-400 text-sm">Subtotal</td>
+									<td class="px-4 py-2 text-right text-gray-700 dark:text-gray-300 text-sm tabular-nums whitespace-nowrap">{currency} {fmt(subtotal)}</td>
 									<td></td>
-									<td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white text-base">Total</td>
-									<td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white text-base w-36">{currency} {fmt(total)}</td>
-									<td class="w-24"></td>
 								</tr>
-							</tbody>
+								<tr>
+									<td colspan="5" class="px-4 py-2 text-right text-gray-500 dark:text-gray-400 text-sm">Tax (15%)</td>
+									<td class="px-4 py-2 text-right text-gray-700 dark:text-gray-300 text-sm tabular-nums whitespace-nowrap">{currency} {fmt(tax)}</td>
+									<td></td>
+								</tr>
+								<tr class="border-t border-gray-200 dark:border-gray-700">
+									<td colspan="5" class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white text-base">Total</td>
+									<td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white text-base tabular-nums whitespace-nowrap">{currency} {fmt(total)}</td>
+									<td></td>
+								</tr>
+							</tfoot>
 						</table>
 					</div>
 				</div>

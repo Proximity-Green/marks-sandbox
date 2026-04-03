@@ -10,6 +10,9 @@
 	let items: Array<Record<string, unknown>> = $state([]);
 	let loading = $state(true);
 	let error = $state('');
+	let search = $state('');
+	let sortCol: 'number' | 'contact' | 'date' | 'modified' | 'total' | 'status' = $state('modified');
+	let sortDir: 'asc' | 'desc' = $state('desc');
 
 	const tabs: Array<{ value: TabType; label: string }> = [
 		{ value: 'invoices', label: 'Invoices' },
@@ -44,6 +47,7 @@
 
 	function switchTab(tab: TabType) {
 		activeTab = tab;
+		search = '';
 		loadDocuments();
 	}
 
@@ -88,10 +92,39 @@
 		}
 	}
 
+	function fmtAmount(n: number): string {
+		const parts = n.toFixed(2).split('.');
+		parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+		return parts.join(',');
+	}
+
 	function getTotal(item: Record<string, unknown>): string {
 		const total = (item.total as number) ?? (item.subTotal as number) ?? 0;
-		const currency = (item.currencyCode as string) || 'ZAR';
-		return `${currency} ${total.toFixed(2)}`;
+		const currency = (item.currency as string) || (item.currencyCode as string) || 'ZAR';
+		return `${currency} ${fmtAmount(total)}`;
+	}
+
+	function getUpdatedDate(item: Record<string, unknown>): string {
+		const dateStr = (item.updatedDateUTC as string) || '';
+		if (!dateStr) return '--';
+		try {
+			let d: Date;
+			const match = dateStr.match(/\/Date\((\d+)[+)]/);
+			if (match) d = new Date(parseInt(match[1]));
+			else d = new Date(dateStr);
+			if (isNaN(d.getTime())) return dateStr || '--';
+			const datePart = d.toLocaleDateString('en-ZA', { timeZone: 'Africa/Johannesburg' });
+			const timePart = d.toLocaleTimeString('en-ZA', { timeZone: 'Africa/Johannesburg', hour: '2-digit', minute: '2-digit', hour12: false });
+			return `${datePart} ${timePart}`;
+		} catch { return dateStr; }
+	}
+
+	function getRawUpdatedDate(item: Record<string, unknown>): number {
+		const dateStr = (item.updatedDateUTC as string) || '';
+		if (!dateStr) return 0;
+		const match = dateStr.match(/\/Date\((\d+)\+/);
+		if (match) return parseInt(match[1]);
+		return new Date(dateStr).getTime() || 0;
 	}
 
 	function getStatus(item: Record<string, unknown>): string {
@@ -101,17 +134,71 @@
 	function getStatusClasses(status: string): string {
 		const s = status.toUpperCase();
 		if (['PAID', 'ACCEPTED', 'BILLED'].includes(s))
-			return 'bg-green-50 text-green-700 border border-green-200';
+			return 'bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-400 border border-green-200 dark:border-green-800';
 		if (['DRAFT', 'PENDING'].includes(s))
-			return 'bg-gray-50 text-gray-600 border border-gray-200';
+			return 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700';
 		if (['SENT', 'SUBMITTED', 'AUTHORISED'].includes(s))
-			return 'bg-blue-50 text-blue-700 border border-blue-200';
+			return 'bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-800';
 		if (['VOIDED', 'DELETED', 'DECLINED'].includes(s))
-			return 'bg-red-50 text-red-600 border border-red-200';
+			return 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800';
 		if (['OVERDUE'].includes(s))
-			return 'bg-amber-50 text-amber-700 border border-amber-200';
-		return 'bg-gray-50 text-gray-600 border border-gray-200';
+			return 'bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800';
+		return 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700';
 	}
+
+	function getRawDate(item: Record<string, unknown>): number {
+		const dateStr = (item.date as string) || (item.dateString as string) || '';
+		if (!dateStr) return 0;
+		const match = dateStr.match(/\/Date\((\d+)\+/);
+		if (match) return parseInt(match[1]);
+		return new Date(dateStr).getTime() || 0;
+	}
+
+	function getRawTotal(item: Record<string, unknown>): number {
+		return (item.total as number) ?? (item.subTotal as number) ?? 0;
+	}
+
+	function getSortValue(item: Record<string, unknown>, col: typeof sortCol): string | number {
+		if (col === 'number') return getDocNumber(item).toLowerCase();
+		if (col === 'contact') return getContact(item).toLowerCase();
+		if (col === 'date') return getRawDate(item);
+		if (col === 'modified') return getRawUpdatedDate(item);
+		if (col === 'total') return getRawTotal(item);
+		if (col === 'status') return getStatus(item);
+		return '';
+	}
+
+	function toggleSort(col: typeof sortCol) {
+		if (sortCol === col) {
+			sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+		} else {
+			sortCol = col;
+			sortDir = col === 'date' || col === 'modified' || col === 'total' ? 'desc' : 'asc';
+		}
+	}
+
+	let filteredItems = $derived.by(() => {
+		let result = items;
+		if (search.trim()) {
+			const q = search.trim().toLowerCase();
+			result = result.filter((item) =>
+				getDocNumber(item).toLowerCase().includes(q) ||
+				getContact(item).toLowerCase().includes(q) ||
+				getDate(item).includes(q) ||
+				getUpdatedDate(item).includes(q) ||
+				getTotal(item).toLowerCase().includes(q) ||
+				getStatus(item).toLowerCase().includes(q)
+			);
+		}
+		return [...result].sort((a, b) => {
+			const av = getSortValue(a, sortCol);
+			const bv = getSortValue(b, sortCol);
+			let cmp = 0;
+			if (typeof av === 'number' && typeof bv === 'number') cmp = av - bv;
+			else cmp = String(av).localeCompare(String(bv));
+			return sortDir === 'asc' ? cmp : -cmp;
+		});
+	});
 
 	function openInXero(item: Record<string, unknown>) {
 		const orgInfo = $auth.org;
@@ -148,8 +235,8 @@
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 	<div class="mb-6 flex items-center justify-between">
 		<div>
-			<h1 class="text-2xl font-bold text-gray-900 mb-1">Documents</h1>
-			<p class="text-gray-500">View and manage your Xero documents.</p>
+			<h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-1">Documents</h1>
+			<p class="text-gray-500 dark:text-gray-400">View and manage your Xero documents.</p>
 		</div>
 		<a
 			href="/create"
@@ -163,21 +250,36 @@
 	</div>
 
 	<!-- Tabs -->
-	<div class="flex gap-1 bg-gray-100 rounded-xl p-1 w-fit mb-6">
+	<div class="flex gap-1 bg-gray-100 dark:bg-gray-800 rounded-xl p-1 w-fit mb-6">
 		{#each tabs as tab}
 			<button
 				onclick={() => switchTab(tab.value)}
 				class="px-5 py-2 text-sm font-medium rounded-lg transition-all cursor-pointer {activeTab === tab.value
-					? 'bg-white text-gray-900 shadow-sm'
-					: 'text-gray-600 hover:text-gray-900'}"
+					? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm'
+					: 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'}"
 			>
 				{tab.label}
 			</button>
 		{/each}
 	</div>
 
+	<!-- Search -->
+	<div class="mb-4">
+		<div class="relative max-w-sm">
+			<svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+				<path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+			</svg>
+			<input
+				type="text"
+				bind:value={search}
+				placeholder="Search by number, contact, status..."
+				class="w-full pl-10 pr-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent placeholder:text-gray-400 dark:placeholder:text-gray-500"
+			/>
+		</div>
+	</div>
+
 	<!-- Table -->
-	<div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+	<div class="bg-white dark:bg-gray-900 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden">
 		{#if loading}
 			<div class="flex flex-col items-center justify-center py-20 gap-3">
 				<div class="w-8 h-8 border-3 border-brand-200 border-t-brand-600 rounded-full animate-spin"></div>
@@ -195,7 +297,7 @@
 					Try again
 				</button>
 			</div>
-		{:else if items.length === 0}
+		{:else if filteredItems.length === 0}
 			<div class="flex flex-col items-center justify-center py-20 gap-3">
 				<div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
 					<svg class="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
@@ -209,24 +311,46 @@
 			</div>
 		{:else}
 			<div class="overflow-x-auto">
-				<table class="w-full text-sm">
+				<table class="w-full text-sm min-w-[900px]">
 					<thead>
-						<tr class="text-left text-xs font-medium text-gray-500 uppercase tracking-wide bg-gray-50/80">
-							<th class="px-5 py-3">Number</th>
-							<th class="px-5 py-3">Contact</th>
-							<th class="px-5 py-3">Date</th>
-							<th class="px-5 py-3 text-right">Total</th>
-							<th class="px-5 py-3">Status</th>
+						<tr class="text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide bg-gray-50/80 dark:bg-gray-800/80">
+							{#each [
+								{ col: 'number', label: 'Number', align: '' },
+								{ col: 'contact', label: 'Contact', align: '' },
+								{ col: 'date', label: 'Date', align: '' },
+								{ col: 'modified', label: 'Modified', align: '' },
+								{ col: 'total', label: 'Total', align: 'text-right' },
+								{ col: 'status', label: 'Status', align: '' }
+							] as header}
+								<th
+									class="px-5 py-3 {header.align} cursor-pointer hover:text-gray-700 dark:hover:text-gray-200 select-none transition-colors"
+									onclick={() => toggleSort(header.col as typeof sortCol)}
+								>
+									<span class="inline-flex items-center gap-1">
+										{header.label}
+										{#if sortCol === header.col}
+											<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+												{#if sortDir === 'asc'}
+													<path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" />
+												{:else}
+													<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+												{/if}
+											</svg>
+										{/if}
+									</span>
+								</th>
+							{/each}
 							<th class="px-5 py-3 text-right">Actions</th>
 						</tr>
 					</thead>
-					<tbody class="divide-y divide-gray-100">
-						{#each items as item}
-							<tr class="hover:bg-gray-50/50 transition-colors">
-								<td class="px-5 py-3.5 font-medium text-gray-900">{getDocNumber(item)}</td>
-								<td class="px-5 py-3.5 text-gray-600">{getContact(item)}</td>
-								<td class="px-5 py-3.5 text-gray-600">{getDate(item)}</td>
-								<td class="px-5 py-3.5 text-gray-900 font-medium text-right">{getTotal(item)}</td>
+					<tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+						{#each filteredItems as item}
+							<tr class="hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors">
+								<td class="px-5 py-3.5 font-medium text-gray-900 dark:text-white">{getDocNumber(item)}</td>
+								<td class="px-5 py-3.5 text-gray-600 dark:text-gray-300">{getContact(item)}</td>
+								<td class="px-5 py-3.5 text-gray-600 dark:text-gray-300">{getDate(item)}</td>
+								<td class="px-5 py-3.5 text-gray-600 dark:text-gray-300 whitespace-nowrap">{getUpdatedDate(item)}</td>
+								<td class="px-5 py-3.5 text-gray-900 dark:text-white font-medium text-right">{getTotal(item)}</td>
 								<td class="px-5 py-3.5">
 									<span class="inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium {getStatusClasses(getStatus(item))}">
 										{getStatus(item)}
@@ -236,7 +360,7 @@
 									<div class="flex items-center justify-end gap-1">
 										<button
 											onclick={() => openInXero(item)}
-											class="p-1.5 text-gray-400 hover:text-brand-600 rounded-lg hover:bg-brand-50 transition-colors cursor-pointer"
+											class="p-1.5 text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors cursor-pointer"
 											title="Open in Xero"
 										>
 											<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -245,7 +369,7 @@
 										</button>
 										<button
 											onclick={() => handleDownloadPdf(item)}
-											class="p-1.5 text-gray-400 hover:text-brand-600 rounded-lg hover:bg-brand-50 transition-colors cursor-pointer"
+											class="p-1.5 text-gray-400 hover:text-brand-600 dark:hover:text-brand-400 rounded-lg hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors cursor-pointer"
 											title="Download PDF"
 										>
 											<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

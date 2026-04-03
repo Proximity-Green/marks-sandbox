@@ -1,6 +1,7 @@
 <script lang="ts">
 	import '../app.css';
-	import { auth, initAuth } from '$lib/stores';
+	import { auth, initAuth, saveAuth } from '$lib/stores';
+	import { getAuthStatus } from '$lib/api';
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 
@@ -8,10 +9,25 @@
 
 	let dark = $state(false);
 
-	onMount(() => {
+	onMount(async () => {
 		initAuth();
 		dark = localStorage.getItem('theme') === 'dark';
 		applyTheme();
+
+		// Re-fetch org info if it's missing or "Unknown Org"
+		const token = localStorage.getItem('xero_session_token');
+		const orgStr = localStorage.getItem('xero_org_info');
+		if (token && orgStr) {
+			try {
+				const org = JSON.parse(orgStr);
+				if (!org.orgName || org.orgName === 'Unknown Org') {
+					const status = await getAuthStatus();
+					if (status.authenticated && status.orgName) {
+						saveAuth(token, { orgName: status.orgName, orgId: org.orgId || '', shortCode: status.shortCode || org.shortCode || '' });
+					}
+				}
+			} catch { /* ignore */ }
+		}
 	});
 
 	function applyTheme() {

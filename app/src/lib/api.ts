@@ -22,7 +22,25 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 
 	if (!res.ok) {
 		const body = await res.text();
-		throw new Error(`API error ${res.status}: ${body}`);
+		let message = `API error ${res.status}`;
+		try {
+			const json = JSON.parse(body);
+			// Xero validation errors
+			if (json.error?.elements) {
+				const msgs = json.error.elements
+					.flatMap((el: Record<string, unknown>) => (el.validationErrors as Array<{ message: string }>) || [])
+					.map((ve: { message: string }) => ve.message);
+				if (msgs.length) { message = msgs.join('. '); throw new Error(message); }
+			}
+			// Worker-level error
+			if (json.error && typeof json.error === 'string') message = json.error;
+			else if (json.Detail) message = json.Detail;
+			else if (json.Message) message = json.Message;
+			else if (json.message) message = json.message;
+		} catch (e) {
+			if (e instanceof Error && !e.message.startsWith('API error')) throw e;
+		}
+		throw new Error(message);
 	}
 
 	const contentType = res.headers.get('content-type') || '';

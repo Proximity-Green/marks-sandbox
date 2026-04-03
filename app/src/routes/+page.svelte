@@ -13,22 +13,26 @@
 		const token = params.get('session') || params.get('token');
 
 		if (token) {
+			console.log('[Auth] Session token found in URL:', token.slice(0, 8) + '...');
 			localStorage.setItem('xero_session_token', token);
-			// Clean URL
 			window.history.replaceState({}, '', '/');
 			checking = true;
 			try {
 				const status = await getAuthStatus();
-				if (status.authenticated && status.orgName) {
+				console.log('[Auth] Status response:', status);
+				if (status.authenticated) {
 					saveAuth(token, {
-						orgName: status.orgName,
+						orgName: status.orgName || 'Unknown Org',
 						orgId: status.orgId ?? '',
 						shortCode: status.shortCode ?? ''
 					});
+					console.log('[Auth] Redirecting to /create');
 					goto('/create');
 					return;
 				}
+				console.warn('[Auth] Not authenticated after callback');
 			} catch (e) {
+				console.error('[Auth] Error verifying session:', e);
 				error = 'Failed to verify connection. Please try again.';
 			}
 			checking = false;
