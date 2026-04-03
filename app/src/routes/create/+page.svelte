@@ -67,17 +67,16 @@
 	let emailSubject = $state('');
 	let emailBody = $state('');
 
-	// Force reactivity on line item changes
-	let lineVersion = $state(0);
-	function touchLines() { lineVersion++; }
+	// Totals - computed explicitly on every change
+	let subtotal = $state(0);
+	let tax = $state(0);
+	let total = $state(0);
 
-	// Computed
-	let subtotal = $derived.by(() => {
-		void lineVersion; // depend on version counter
-		return lineItems.reduce((sum, item) => sum + Number(item.quantity) * Number(item.unitPrice), 0);
-	});
-	let tax = $derived(subtotal * 0.15);
-	let total = $derived(subtotal + tax);
+	function recalcTotals() {
+		subtotal = lineItems.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.unitPrice || 0), 0);
+		tax = subtotal * 0.15;
+		total = subtotal + tax;
+	}
 
 	const RANDOM_NAMES = ['Acme Corp', 'Globex Inc', 'Initech', 'Umbrella Ltd', 'Stark Industries', 'Wayne Enterprises', 'Oscorp', 'Cyberdyne Systems'];
 	const RANDOM_ITEMS = ['Web Development', 'Consulting', 'Design Services', 'Server Hosting', 'SEO Audit', 'Logo Design', 'App Development', 'Data Migration', 'Training Workshop', 'Support Package'];
@@ -101,7 +100,8 @@
 			newLines.push({ description: item, accountCode: docType === 'invoice' ? '200' : '', trackingCategoryId: '', trackingOptionId: '', quantity: randomInt(1, 10), unitPrice: randomInt(50, 500) });
 		}
 		lineItems = newLines;
-		touchLines();
+		nextId = newLines.length + 1;
+		recalcTotals();
 	}
 
 	let docTypeLabel = $derived(
@@ -146,16 +146,17 @@
 
 	function removeLineItem(index: number) {
 		if (lineItems.length > 1) {
-			lineItems.splice(index, 1);
+			lineItems = lineItems.filter((_, i) => i !== index);
+			recalcTotals();
 		}
 	}
 
 	function moveLineItem(index: number, direction: -1 | 1) {
 		const newIndex = index + direction;
 		if (newIndex < 0 || newIndex >= lineItems.length) return;
-		const temp = lineItems[index];
-		lineItems[index] = lineItems[newIndex];
-		lineItems[newIndex] = temp;
+		const newItems = [...lineItems];
+		[newItems[index], newItems[newIndex]] = [newItems[newIndex], newItems[index]];
+		lineItems = newItems;
 	}
 
 	async function handleSubmit() {
@@ -662,7 +663,7 @@
 											<input
 												type="number"
 												bind:value={item.quantity}
-												oninput={touchLines}
+												oninput={recalcTotals}
 												min="0"
 												step="1"
 												class="w-full px-2 py-1.5 border border-transparent hover:border-gray-200 focus:border-brand-300 rounded text-sm text-right focus:outline-none focus:ring-1 focus:ring-brand-500"
@@ -672,7 +673,7 @@
 											<input
 												type="number"
 												bind:value={item.unitPrice}
-												oninput={touchLines}
+												oninput={recalcTotals}
 												min="0"
 												step="0.01"
 												class="w-full px-2 py-1.5 border border-transparent hover:border-gray-200 focus:border-brand-300 rounded text-sm text-right focus:outline-none focus:ring-1 focus:ring-brand-500"
