@@ -4,15 +4,28 @@ const API_URL = 'https://xero-invoice-worker.mark-442.workers.dev';
 
 function checkAuth() {
   const params = new URLSearchParams(window.location.search);
-  if (params.get('auth') === 'success') {
-    setConnected(true);
+  const session = params.get('session');
+  if (session) {
+    localStorage.setItem('xero_session', session);
     window.history.replaceState({}, '', window.location.pathname);
+    setConnected(true);
     return;
   }
-  // Check if we have a valid session
-  fetch(`${API_URL}/auth/status`, { credentials: 'include' })
+
+  const stored = localStorage.getItem('xero_session');
+  if (!stored) {
+    setConnected(false);
+    return;
+  }
+
+  fetch(`${API_URL}/auth/status`, {
+    headers: { Authorization: `Bearer ${stored}` },
+  })
     .then(r => r.json())
-    .then(data => setConnected(data.authenticated))
+    .then(data => {
+      if (!data.authenticated) localStorage.removeItem('xero_session');
+      setConnected(data.authenticated);
+    })
     .catch(() => setConnected(false));
 }
 
@@ -94,6 +107,9 @@ function toDateStr(d) {
 
 document.getElementById('invoice-form').addEventListener('submit', async (e) => {
   e.preventDefault();
+  const session = localStorage.getItem('xero_session');
+  if (!session) return;
+
   const btn = document.getElementById('submit-btn');
   const msg = document.getElementById('status-msg');
   btn.disabled = true;
@@ -123,8 +139,10 @@ document.getElementById('invoice-form').addEventListener('submit', async (e) => 
   try {
     const res = await fetch(`${API_URL}/invoice`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session}`,
+      },
       body: JSON.stringify(invoice),
     });
     const data = await res.json();

@@ -2,13 +2,13 @@ const XERO_AUTH_URL = 'https://login.xero.com/identity/connect/authorize';
 const XERO_TOKEN_URL = 'https://identity.xero.com/connect/token';
 const XERO_API_URL = 'https://api.xero.com/api.xro/2.0';
 const XERO_CONNECTIONS_URL = 'https://api.xero.com/connections';
-const SCOPES = 'openid profile email accounting.transactions accounting.contacts';
+const SCOPES = 'openid profile email accounting.invoices accounting.contacts';
 
 function corsHeaders(env) {
   return {
     'Access-Control-Allow-Origin': env.FRONTEND_URL,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Credentials': 'true',
   };
 }
@@ -20,10 +20,9 @@ function jsonResponse(data, status, env) {
   });
 }
 
-// Simple session ID from cookie
 function getSessionId(request) {
-  const cookie = request.headers.get('Cookie') || '';
-  const match = cookie.match(/session=([a-f0-9]+)/);
+  const auth = request.headers.get('Authorization') || '';
+  const match = auth.match(/^Bearer (.+)$/);
   return match ? match[1] : null;
 }
 
@@ -56,10 +55,7 @@ export default {
 
       return new Response(null, {
         status: 302,
-        headers: {
-          Location: authUrl,
-          'Set-Cookie': `session=${sessionId}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=86400`,
-        },
+        headers: { Location: authUrl },
       });
     }
 
@@ -112,11 +108,11 @@ export default {
         tenant_id: tenantId,
       }), { expirationTtl: 86400 });
 
+      // Redirect back to frontend with session token in URL fragment
       return new Response(null, {
         status: 302,
         headers: {
-          Location: `${env.FRONTEND_URL}?auth=success`,
-          'Set-Cookie': `session=${sessionId}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=86400`,
+          Location: `${env.FRONTEND_URL}?session=${sessionId}`,
         },
       });
     }
