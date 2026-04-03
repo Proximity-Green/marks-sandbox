@@ -1,6 +1,7 @@
 name = "xero-invoice-worker"
 main = "src/index.js"
 compatibility_date = "2024-01-01"
+account_id = "442567af9f9ae4f948e8310c20266185"
 
 [vars]
 FRONTEND_URL = "https://proximity-green.github.io/marks-sandbox"
@@ -11,4 +12,4 @@ FRONTEND_URL = "https://proximity-green.github.io/marks-sandbox"
 
 [[kv_namespaces]]
 binding = "TOKENS"
-id = ""  # Will be filled after `wrangler kv namespace create TOKENS`
+id = "4ee8d62f5e0e41cdb698edbee40a79cb"

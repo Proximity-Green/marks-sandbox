@@ -1,4 +1,4 @@
-const API_URL = 'https://xero-invoice-worker.mseftel.workers.dev';
+const API_URL = 'https://xero-invoice-worker.mark-442.workers.dev';
 
 // --- Auth ---
 
