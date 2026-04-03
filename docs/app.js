@@ -75,7 +75,7 @@ async function loadDocList(type) {
     }
 
     const sc = localStorage.getItem('xero_short_code') || '';
-    const xeroBase = `https://go.xero.com/app/!${sc}`;
+    const xeroBase = `https://go.xero.com/app/${sc}`;
     const xeroUrls = {
       invoice: id => `${xeroBase}/invoicing/view/${id}`,
       quote: id => `${xeroBase}/quotes/view/${id}`,
