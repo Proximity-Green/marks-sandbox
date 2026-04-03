@@ -137,6 +137,7 @@ function checkAuth() {
     .then(data => {
       if (!data.authenticated) localStorage.removeItem('xero_session');
       if (data.shortCode) localStorage.setItem('xero_short_code', data.shortCode);
+      if (data.orgName) localStorage.setItem('xero_org_name', data.orgName);
       setConnected(data.authenticated);
     })
     .catch(() => setConnected(false));
@@ -146,7 +147,10 @@ function setConnected(connected) {
   document.getElementById('connect-btn').classList.toggle('hidden', connected);
   document.getElementById('connected-msg').classList.toggle('hidden', !connected);
   document.getElementById('submit-btn').disabled = !connected;
-  if (connected) loadCurrencies();
+  if (connected) {
+    document.getElementById('org-name').textContent = localStorage.getItem('xero_org_name') || 'Xero';
+    loadCurrencies();
+  }
 }
 
 function loadCurrencies() {
@@ -178,6 +182,7 @@ document.getElementById('connect-btn').addEventListener('click', () => {
 document.getElementById('logout-btn').addEventListener('click', () => {
   localStorage.removeItem('xero_session');
   localStorage.removeItem('xero_short_code');
+  localStorage.removeItem('xero_org_name');
   setConnected(false);
 });
 

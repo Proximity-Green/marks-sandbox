@@ -131,10 +131,13 @@ export default {
         headers: { Authorization: `Bearer ${tokens.access_token}` },
       });
       const connections = await connRes.json();
-      const tenantId = connections[0]?.tenantId;
+      // Use the most recently connected tenant
+      const sorted = connections.sort((a, b) => new Date(b.createdDateUtc) - new Date(a.createdDateUtc));
+      const tenantId = sorted[0]?.tenantId;
 
       // Get org short code (best effort)
       let shortCode = '';
+      let orgName = '';
       try {
         const orgRes = await fetch(`${XERO_API_URL}/Organisation`, {
           headers: {
@@ -145,6 +148,7 @@ export default {
         if (orgRes.ok) {
           const orgData = await orgRes.json();
           shortCode = orgData.Organisations?.[0]?.ShortCode || '';
+          orgName = orgData.Organisations?.[0]?.Name || '';
         }
       } catch (e) { /* ignore */ }
 
@@ -154,6 +158,7 @@ export default {
         expires_at: Date.now() + tokens.expires_in * 1000,
         tenant_id: tenantId,
         short_code: shortCode,
+        org_name: orgName,
       }), { expirationTtl: 86400 });
 
       return new Response(null, {
@@ -171,7 +176,7 @@ export default {
       const raw = await env.TOKENS.get(`tokens:${sessionId}`);
       if (!raw) return jsonResponse({ authenticated: false }, 200, env, request);
       const tokenData = JSON.parse(raw);
-      return jsonResponse({ authenticated: true, shortCode: tokenData.short_code || '' }, 200, env, request);
+      return jsonResponse({ authenticated: true, shortCode: tokenData.short_code || '', orgName: tokenData.org_name || '' }, 200, env, request);
     }
 
     // --- Get Currencies ---
