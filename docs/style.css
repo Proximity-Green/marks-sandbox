@@ -28,7 +28,7 @@ header {
   border-bottom: 2px solid #ddd;
 }
 
-.tab {
+.tab, .list-tab {
   padding: 0.6rem 1.5rem;
   border: none;
   background: none;
@@ -40,8 +40,8 @@ header {
   font-weight: 500;
 }
 
-.tab:hover { color: #555; }
-.tab.active { color: #0078c8; border-bottom-color: #0078c8; }
+.tab:hover, .list-tab:hover { color: #555; }
+.tab.active, .list-tab.active { color: #0078c8; border-bottom-color: #0078c8; }
 
 .form-check {
   margin: 0.75rem 0;

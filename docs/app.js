@@ -80,7 +80,8 @@ async function loadDocList(type) {
       return;
     }
 
-    const xeroBase = 'https://go.xero.com/app/!T!rDp';
+    const sc = localStorage.getItem('xero_short_code') || '';
+    const xeroBase = `https://go.xero.com/app/!${sc}`;
     const xeroUrls = {
       invoice: id => `${xeroBase}/invoicing/view/${id}`,
       quote: id => `${xeroBase}/quotes/view/${id}`,
@@ -141,6 +142,7 @@ function checkAuth() {
     .then(r => r.json())
     .then(data => {
       if (!data.authenticated) localStorage.removeItem('xero_session');
+      if (data.shortCode) localStorage.setItem('xero_short_code', data.shortCode);
       setConnected(data.authenticated);
     })
     .catch(() => setConnected(false));
@@ -181,6 +183,7 @@ document.getElementById('connect-btn').addEventListener('click', () => {
 
 document.getElementById('logout-btn').addEventListener('click', () => {
   localStorage.removeItem('xero_session');
+  localStorage.removeItem('xero_short_code');
   setConnected(false);
 });
 

@@ -133,11 +133,25 @@ export default {
       const connections = await connRes.json();
       const tenantId = connections[0]?.tenantId;
 
+      // Get org short code
+      let shortCode = '';
+      const orgRes = await fetch(`${XERO_API_URL}/Organisation`, {
+        headers: {
+          Authorization: `Bearer ${tokens.access_token}`,
+          'Xero-Tenant-Id': tenantId,
+        },
+      });
+      if (orgRes.ok) {
+        const orgData = await orgRes.json();
+        shortCode = orgData.Organisations?.[0]?.ShortCode || '';
+      }
+
       await env.TOKENS.put(`tokens:${sessionId}`, JSON.stringify({
         access_token: tokens.access_token,
         refresh_token: tokens.refresh_token,
         expires_at: Date.now() + tokens.expires_in * 1000,
         tenant_id: tenantId,
+        short_code: shortCode,
       }), { expirationTtl: 86400 });
 
       return new Response(null, {
@@ -152,8 +166,10 @@ export default {
     if (url.pathname === '/auth/status') {
       const sessionId = getSessionId(request);
       if (!sessionId) return jsonResponse({ authenticated: false }, 200, env, request);
-      const tokenData = await env.TOKENS.get(`tokens:${sessionId}`);
-      return jsonResponse({ authenticated: !!tokenData }, 200, env, request);
+      const raw = await env.TOKENS.get(`tokens:${sessionId}`);
+      if (!raw) return jsonResponse({ authenticated: false }, 200, env, request);
+      const tokenData = JSON.parse(raw);
+      return jsonResponse({ authenticated: true, shortCode: tokenData.short_code || '' }, 200, env, request);
     }
 
     // --- Get Currencies ---
