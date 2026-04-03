@@ -143,6 +143,8 @@ function checkAuth() {
     .catch(() => setConnected(false));
 }
 
+let trackingCategories = [];
+
 function setConnected(connected) {
   document.getElementById('connect-btn').classList.toggle('hidden', connected);
   document.getElementById('connected-msg').classList.toggle('hidden', !connected);
@@ -150,7 +152,38 @@ function setConnected(connected) {
   if (connected) {
     document.getElementById('org-name').textContent = localStorage.getItem('xero_org_name') || 'Xero';
     loadCurrencies();
+    loadTracking();
   }
+}
+
+function loadTracking() {
+  const session = localStorage.getItem('xero_session');
+  if (!session) return;
+  fetch(`${API_URL}/tracking`, {
+    headers: { Authorization: `Bearer ${session}` },
+  })
+    .then(r => r.json())
+    .then(data => {
+      trackingCategories = data.categories || [];
+      // Update existing line item tracking dropdowns
+      document.querySelectorAll('.line-tracking').forEach(sel => populateTrackingSelect(sel));
+    })
+    .catch(() => {});
+}
+
+function populateTrackingSelect(sel) {
+  sel.innerHTML = '<option value="">--</option>';
+  trackingCategories.forEach(cat => {
+    const group = document.createElement('optgroup');
+    group.label = cat.name;
+    cat.options.forEach(opt => {
+      const o = document.createElement('option');
+      o.value = `${cat.id}|${opt.id}`;
+      o.textContent = opt.name;
+      group.appendChild(o);
+    });
+    sel.appendChild(group);
+  });
 }
 
 function loadCurrencies() {
@@ -197,11 +230,14 @@ function addLine(desc = '', qty = 1, price = 0) {
   tr.dataset.id = id;
   tr.innerHTML = `
     <td><input type="text" class="line-desc" value="${desc}" placeholder="Description"></td>
+    <td><input type="text" class="line-account" placeholder="200" size="6"></td>
+    <td><select class="line-tracking"><option value="">--</option></select></td>
     <td><input type="number" class="line-qty" value="${qty}" min="0" step="1"></td>
     <td><input type="number" class="line-price" value="${price}" min="0" step="0.01"></td>
     <td class="line-amount">ZAR 0.00</td>
     <td><button type="button" class="btn-move btn-up" title="Move up">&uarr;</button><button type="button" class="btn-move btn-down" title="Move down">&darr;</button><button type="button" class="btn-remove">&times;</button></td>
   `;
+  populateTrackingSelect(tr.querySelector('.line-tracking'));
   tbody.appendChild(tr);
   updateTotals();
   return tr;
@@ -307,8 +343,16 @@ document.getElementById('invoice-form').addEventListener('submit', async (e) => 
 
   const lineItems = [];
   document.querySelectorAll('#line-items tbody tr').forEach(tr => {
+    const trackingVal = tr.querySelector('.line-tracking').value;
+    const tracking = [];
+    if (trackingVal) {
+      const [catId, optId] = trackingVal.split('|');
+      tracking.push({ categoryId: catId, optionId: optId });
+    }
     lineItems.push({
       description: tr.querySelector('.line-desc').value,
+      accountCode: tr.querySelector('.line-account').value || '',
+      tracking,
       quantity: parseFloat(tr.querySelector('.line-qty').value) || 0,
       unitAmount: parseFloat(tr.querySelector('.line-price').value) || 0,
     });

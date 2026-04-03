@@ -199,6 +199,32 @@ export default {
       return jsonResponse({ currencies: result.Currencies || [] }, 200, env, request);
     }
 
+    // --- Get Tracking Categories ---
+    if (url.pathname === '/tracking' && request.method === 'GET') {
+      const tokenData = await getTokenData(request, env);
+      if (!tokenData) return jsonResponse({ error: 'Not authenticated' }, 401, env, request);
+
+      const res = await fetch(`${XERO_API_URL}/TrackingCategories`, {
+        headers: {
+          Authorization: `Bearer ${tokenData.access_token}`,
+          'Xero-Tenant-Id': tokenData.tenant_id,
+        },
+      });
+
+      const result = await res.json();
+      if (!res.ok) {
+        return jsonResponse({ error: result.Message || 'Failed to fetch tracking' }, res.status, env, request);
+      }
+
+      const categories = (result.TrackingCategories || []).map(c => ({
+        id: c.TrackingCategoryID,
+        name: c.Name,
+        options: (c.Options || []).map(o => ({ id: o.TrackingOptionID, name: o.Name })),
+      }));
+
+      return jsonResponse({ categories }, 200, env, request);
+    }
+
     // --- List Documents ---
     if (url.pathname === '/list' && request.method === 'GET') {
       const tokenData = await getTokenData(request, env);
@@ -291,7 +317,13 @@ export default {
           Quantity: item.quantity,
           UnitAmount: item.unitAmount,
         };
-        if (docType === 'invoice') li.AccountCode = '200';
+        if (item.accountCode) li.AccountCode = item.accountCode;
+        if (item.tracking && item.tracking.length > 0) {
+          li.Tracking = item.tracking.map(t => ({
+            TrackingCategoryID: t.categoryId,
+            TrackingOptionID: t.optionId,
+          }));
+        }
         return li;
       });
 

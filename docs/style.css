@@ -145,9 +145,12 @@ th {
   border-bottom: 1px solid #eee;
 }
 
-th:nth-child(2), th:nth-child(3) { width: 80px; text-align: right; }
-th:nth-child(4) { width: 130px; text-align: right; }
-th:nth-child(5) { width: 65px; text-align: center; }
+#line-items th:nth-child(1) { min-width: 140px; }
+#line-items th:nth-child(2) { width: 90px; }
+#line-items .th-tracking { width: 120px; }
+#line-items th:nth-child(4), #line-items th:nth-child(5) { width: 65px; text-align: right; }
+#line-items th:nth-child(6) { width: 110px; text-align: right; }
+#line-items th:nth-child(7) { width: 60px; text-align: center; }
 
 td { padding: 0.4rem 0.4rem; vertical-align: middle; }
 
@@ -159,9 +162,18 @@ td input {
   font-size: 0.9rem;
 }
 
-td:nth-child(2) input, td:nth-child(3) input { text-align: right; }
-td:nth-child(4) { text-align: right; font-weight: 500; color: #333; white-space: nowrap; font-size: 0.9rem; }
-td:nth-child(5) { text-align: center; white-space: nowrap; }
+td select {
+  width: 100%;
+  padding: 0.4rem 0.3rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  background: #fff;
+}
+
+#line-items td:nth-child(4) input, #line-items td:nth-child(5) input { text-align: right; }
+#line-items td:nth-child(6) { text-align: right; font-weight: 500; color: #333; white-space: nowrap; font-size: 0.9rem; }
+#line-items td:nth-child(7) { text-align: center; white-space: nowrap; }
 
 .btn-move {
   background: none;
