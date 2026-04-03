@@ -14,15 +14,15 @@ body {
 }
 
 .container-wide {
-  max-width: 1100px;
+  max-width: 1200px;
   margin: 1rem auto;
   padding: 0 1rem;
 }
 
 .form-grid {
   display: grid;
-  grid-template-columns: 340px 1fr;
-  gap: 1rem;
+  grid-template-columns: 320px 1fr;
+  gap: 1.5rem;
   align-items: start;
 }
 
@@ -145,22 +145,22 @@ th {
   border-bottom: 1px solid #eee;
 }
 
-th:nth-child(2), th:nth-child(3) { width: 70px; text-align: right; }
-th:nth-child(4) { width: 120px; text-align: right; }
-th:nth-child(5) { width: 60px; text-align: center; }
+th:nth-child(2), th:nth-child(3) { width: 80px; text-align: right; }
+th:nth-child(4) { width: 130px; text-align: right; }
+th:nth-child(5) { width: 65px; text-align: center; }
 
-td { padding: 0.35rem 0.35rem; }
+td { padding: 0.4rem 0.4rem; vertical-align: middle; }
 
 td input {
   width: 100%;
-  padding: 0.4rem 0.5rem;
+  padding: 0.45rem 0.5rem;
   border: 1px solid #ddd;
   border-radius: 4px;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
 }
 
 td:nth-child(2) input, td:nth-child(3) input { text-align: right; }
-td:nth-child(4) { text-align: right; font-weight: 500; color: #333; padding-top: 0.6rem; white-space: nowrap; font-size: 0.85rem; }
+td:nth-child(4) { text-align: right; font-weight: 500; color: #333; white-space: nowrap; font-size: 0.9rem; }
 td:nth-child(5) { text-align: center; white-space: nowrap; }
 
 .btn-move {
