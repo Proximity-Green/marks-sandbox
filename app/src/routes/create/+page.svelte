@@ -486,6 +486,32 @@
 			{/each}
 		</div>
 
+		<!-- Action buttons -->
+		<div class="flex gap-3 mb-6">
+			<button
+				onclick={handleSubmit}
+				disabled={submitting}
+				class="px-6 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-medium rounded-lg transition-colors disabled:opacity-50 shadow-sm cursor-pointer flex items-center gap-2"
+			>
+				{#if submitting}
+					<div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+					Creating...
+				{:else}
+					Create {docTypeLabel}
+				{/if}
+			</button>
+			<button
+				onclick={fillRandomData}
+				type="button"
+				class="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-600 font-medium rounded-lg transition-colors cursor-pointer text-sm"
+			>
+				Fill Test Data
+			</button>
+			{#if submitError}
+				<div class="flex items-center text-red-600 text-sm">{submitError}</div>
+			{/if}
+		</div>
+
 		<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
 			<!-- Left column: Details -->
 			<div class="lg:col-span-1 space-y-6">
@@ -571,34 +597,8 @@
 					</div>
 				</div>
 
-				<!-- Submit -->
-				{#if submitError}
-					<div class="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3">
-						{submitError}
-					</div>
-				{/if}
 
-				<button
-					onclick={fillRandomData}
-					type="button"
-					class="w-full py-2 mb-2 bg-gray-100 hover:bg-gray-200 text-gray-600 font-medium rounded-xl transition-colors cursor-pointer text-sm"
-				>
-					Fill Random Test Data
-				</button>
-
-				<button
-					onclick={handleSubmit}
-					disabled={submitting}
-					class="w-full py-3 bg-brand-600 hover:bg-brand-700 text-white font-medium rounded-xl transition-colors disabled:opacity-50 shadow-sm cursor-pointer flex items-center justify-center gap-2"
-				>
-					{#if submitting}
-						<div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-						Creating...
-					{:else}
-						Create {docTypeLabel}
-					{/if}
-				</button>
-			</div>
+				</div>
 
 			<!-- Right column: Line items -->
 			<div class="lg:col-span-2">
