@@ -68,6 +68,7 @@
 	}
 
 	function getContact(item: Record<string, unknown>): string {
+		if (typeof item.contact === 'string') return item.contact || '--';
 		const contact = item.contact as Record<string, unknown> | undefined;
 		return (contact?.name as string) || '--';
 	}
