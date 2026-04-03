@@ -51,6 +51,11 @@ export async function getCurrencies(): Promise<{ currencies: Array<{ code: strin
 	return request('/currencies');
 }
 
+// Chart of Accounts
+export async function getAccounts(): Promise<{ accounts: Array<{ code: string; name: string; type: string }> }> {
+	return request('/accounts');
+}
+
 // Tracking categories
 export async function getTracking(): Promise<{
 	tracking: Array<{ trackingCategoryID: string; name: string; options: Array<{ trackingOptionID: string; name: string }> }>;
@@ -60,7 +65,8 @@ export async function getTracking(): Promise<{
 
 // List documents
 export async function listDocuments(type: 'invoices' | 'quotes' | 'purchaseorders'): Promise<{ items: Array<Record<string, unknown>> }> {
-	return request(`/list?type=${type}`);
+	const typeMap: Record<string, string> = { invoices: 'invoice', quotes: 'quote', purchaseorders: 'po' };
+	return request(`/list?type=${typeMap[type] || type}`);
 }
 
 // Create document

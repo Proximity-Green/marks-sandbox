@@ -10,7 +10,7 @@
 	onMount(async () => {
 		// Check for callback token in URL hash
 		const params = new URLSearchParams(window.location.search);
-		const token = params.get('token');
+		const token = params.get('session') || params.get('token');
 
 		if (token) {
 			localStorage.setItem('xero_session_token', token);

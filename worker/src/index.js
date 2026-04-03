@@ -199,6 +199,32 @@ export default {
       return jsonResponse({ currencies: result.Currencies || [] }, 200, env, request);
     }
 
+    // --- Get Chart of Accounts ---
+    if (url.pathname === '/accounts' && request.method === 'GET') {
+      const tokenData = await getTokenData(request, env);
+      if (!tokenData) return jsonResponse({ error: 'Not authenticated' }, 401, env, request);
+
+      const res = await fetch(`${XERO_API_URL}/Accounts?where=Status=="ACTIVE"&order=Code`, {
+        headers: {
+          Authorization: `Bearer ${tokenData.access_token}`,
+          'Xero-Tenant-Id': tokenData.tenant_id,
+        },
+      });
+
+      const result = await res.json();
+      if (!res.ok) {
+        return jsonResponse({ error: result.Message || 'Failed to fetch accounts' }, res.status, env, request);
+      }
+
+      const accounts = (result.Accounts || []).map(a => ({
+        code: a.Code,
+        name: a.Name,
+        type: a.Type,
+      }));
+
+      return jsonResponse({ accounts }, 200, env, request);
+    }
+
     // --- Get Tracking Categories ---
     if (url.pathname === '/tracking' && request.method === 'GET') {
       const tokenData = await getTokenData(request, env);

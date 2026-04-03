@@ -5,6 +5,7 @@
 	import {
 		getCurrencies,
 		getTracking,
+		getAccounts,
 		createDocument,
 		downloadPdf,
 		sendEmail,
@@ -14,11 +15,18 @@
 	// Types
 	type DocType = 'invoice' | 'quote' | 'purchaseorder';
 
+	interface Account {
+		code: string;
+		name: string;
+		type: string;
+	}
+
 	interface LineItem {
 		id: number;
 		description: string;
 		accountCode: string;
-		tracking: Record<string, string>;
+		trackingCategoryId: string;
+		trackingOptionId: string;
 		quantity: number;
 		unitPrice: number;
 	}
@@ -39,10 +47,11 @@
 	let currency = $state('ZAR');
 	let currencies: Array<{ code: string; description: string }> = $state([]);
 	let trackingCategories: TrackingCategory[] = $state([]);
+	let accounts: Account[] = $state([]);
 	let nextId = $state(2);
 
 	let lineItems: LineItem[] = $state([
-		{ id: 1, description: '', accountCode: '', tracking: {}, quantity: 1, unitPrice: 0 }
+		{ id: 1, description: '', accountCode: '', trackingCategoryId: '', trackingOptionId: '', quantity: 1, unitPrice: 0 }
 	]);
 
 	let submitting = $state(false);
@@ -64,6 +73,30 @@
 	);
 	let tax = $derived(subtotal * 0.15);
 	let total = $derived(subtotal + tax);
+
+	const RANDOM_NAMES = ['Acme Corp', 'Globex Inc', 'Initech', 'Umbrella Ltd', 'Stark Industries', 'Wayne Enterprises', 'Oscorp', 'Cyberdyne Systems'];
+	const RANDOM_ITEMS = ['Web Development', 'Consulting', 'Design Services', 'Server Hosting', 'SEO Audit', 'Logo Design', 'App Development', 'Data Migration', 'Training Workshop', 'Support Package'];
+
+	function randomPick<T>(arr: T[]): T { return arr[Math.floor(Math.random() * arr.length)]; }
+	function randomInt(min: number, max: number) { return Math.floor(Math.random() * (max - min + 1)) + min; }
+
+	function fillRandomData() {
+		const name = randomPick(RANDOM_NAMES);
+		const prefix = docType === 'invoice' ? 'INV' : docType === 'quote' ? 'QU' : 'PO';
+		contactName = name;
+		contactEmail = name.toLowerCase().replace(/\s+/g, '.') + '@example.com';
+		reference = prefix + '-' + randomInt(1000, 9999);
+		const numLines = randomInt(1, 4);
+		const usedItems = new Set<string>();
+		const newLines: typeof lineItems = [];
+		for (let i = 0; i < numLines; i++) {
+			let item: string;
+			do { item = randomPick(RANDOM_ITEMS); } while (usedItems.has(item));
+			usedItems.add(item);
+			newLines.push({ description: item, accountCode: docType === 'invoice' ? '200' : '', trackingCategoryId: '', trackingOptionId: '', quantity: randomInt(1, 10), unitPrice: randomInt(50, 500) });
+		}
+		lineItems = newLines;
+	}
 
 	let docTypeLabel = $derived(
 		docType === 'invoice' ? 'Invoice' : docType === 'quote' ? 'Quote' : 'Purchase Order'
@@ -132,8 +165,8 @@
 		submitError = '';
 
 		const payload: Record<string, unknown> = {
-			type: docType === 'purchaseorder' ? 'purchaseorders' : docType + 's',
-			contact: { name: contactName.trim(), emailAddress: contactEmail.trim() || undefined },
+			docType: docType === 'purchaseorder' ? 'po' : docType,
+			contact: { name: contactName.trim(), email: contactEmail.trim() || undefined },
 			date: docDate,
 			dueDate: dueDate || undefined,
 			reference: reference.trim() || undefined,
@@ -148,12 +181,8 @@
 						accountCode: li.accountCode.trim() || undefined
 					};
 
-					const trackingEntries = Object.entries(li.tracking).filter(([, v]) => v);
-					if (trackingEntries.length > 0) {
-						item.tracking = trackingEntries.map(([catName, optionName]) => ({
-							name: catName,
-							option: optionName
-						}));
+					if (li.trackingCategoryId && li.trackingOptionId) {
+						item.tracking = [{ categoryId: li.trackingCategoryId, optionId: li.trackingOptionId }];
 					}
 
 					return item;
@@ -197,9 +226,9 @@
 	}
 
 	function getXeroType(): string {
-		if (createdDocType === 'invoice') return 'invoices';
-		if (createdDocType === 'quote') return 'quotes';
-		return 'purchaseorders';
+		if (createdDocType === 'invoice') return 'invoice';
+		if (createdDocType === 'quote') return 'quote';
+		return 'po';
 	}
 
 	async function handleDownloadPdf() {
@@ -238,12 +267,12 @@
 		const orgInfo = $auth.org;
 		if (!orgInfo?.shortCode) return;
 		const typeMap: Record<string, string> = {
-			invoices: 'AccountsReceivable/View.aspx?InvoiceID=',
-			quotes: 'Quotes/View.aspx?QuoteID=',
-			purchaseorders: 'AccountsPayable/ViewPurchaseOrder.aspx?PurchaseOrderID='
+			invoice: 'invoicing/view',
+			quote: 'quotes/view',
+			po: 'purchase-orders/edit'
 		};
-		const path = typeMap[getXeroType()] || '';
-		window.open(`https://go.xero.com/organisationlogin/default.aspx?shortcode=${orgInfo.shortCode}&redirecturl=/${path}${getDocId()}`, '_blank');
+		const path = typeMap[getXeroType()] || 'invoicing/view';
+		window.open(`https://go.xero.com/app/${orgInfo.shortCode}/${path}/${getDocId()}`, '_blank');
 	}
 
 	function openEmailModal() {
@@ -534,6 +563,14 @@
 						{submitError}
 					</div>
 				{/if}
+
+				<button
+					onclick={fillRandomData}
+					type="button"
+					class="w-full py-2 mb-2 bg-gray-100 hover:bg-gray-200 text-gray-600 font-medium rounded-xl transition-colors cursor-pointer text-sm"
+				>
+					Fill Random Test Data
+				</button>
 
 				<button
 					onclick={handleSubmit}
