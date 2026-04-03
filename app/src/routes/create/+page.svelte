@@ -328,94 +328,7 @@
 </script>
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-	{#if createdDoc}
-		<!-- Success state -->
-		<div class="max-w-2xl mx-auto">
-			<div class="bg-white rounded-2xl shadow-lg shadow-gray-200/50 border border-gray-100 p-8 text-center">
-				<div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-					<svg class="w-8 h-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-						<path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
-					</svg>
-				</div>
-
-				<h2 class="text-2xl font-bold text-gray-900 mb-1">{docTypeLabel} Created</h2>
-				<p class="text-gray-500 mb-8">
-					{#if getDocNumber()}
-						{docTypeLabel} #{getDocNumber()} has been created successfully.
-					{:else}
-						Your {docTypeLabel.toLowerCase()} has been created successfully.
-					{/if}
-				</p>
-
-				<div class="grid grid-cols-2 gap-3 mb-6">
-					<button
-						onclick={handleDownloadPdf}
-						disabled={actionLoading === 'pdf'}
-						class="flex items-center justify-center gap-2 px-4 py-3 bg-brand-600 hover:bg-brand-700 text-white rounded-xl font-medium transition-colors disabled:opacity-50 cursor-pointer"
-					>
-						{#if actionLoading === 'pdf'}
-							<div class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-						{:else}
-							<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-								<path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-							</svg>
-						{/if}
-						Download PDF
-					</button>
-
-					<button
-						onclick={openInXero}
-						class="flex items-center justify-center gap-2 px-4 py-3 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl font-medium transition-colors cursor-pointer"
-					>
-						<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-							<path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-						</svg>
-						View in Xero
-					</button>
-
-					<button
-						onclick={handleSendViaXero}
-						disabled={actionLoading === 'send'}
-						class="flex items-center justify-center gap-2 px-4 py-3 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl font-medium transition-colors disabled:opacity-50 cursor-pointer"
-					>
-						{#if actionLoading === 'send'}
-							<div class="w-4 h-4 border-2 border-gray-300 border-t-gray-600 rounded-full animate-spin"></div>
-						{:else}
-							<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-								<path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-							</svg>
-						{/if}
-						Send via Xero
-					</button>
-
-					<button
-						onclick={openEmailModal}
-						class="flex items-center justify-center gap-2 px-4 py-3 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-xl font-medium transition-colors cursor-pointer"
-					>
-						<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-							<path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-						</svg>
-						Email PDF
-					</button>
-				</div>
-
-				{#if actionMessage}
-					<div class="bg-blue-50 border border-blue-200 text-blue-700 text-sm rounded-lg p-3 mb-4">
-						{actionMessage}
-					</div>
-				{/if}
-
-				<button
-					onclick={resetForm}
-					class="text-brand-600 hover:text-brand-700 font-medium text-sm cursor-pointer"
-				>
-					Create another {docTypeLabel.toLowerCase()}
-				</button>
-			</div>
-		</div>
-
-		<!-- Email modal -->
-		{#if showEmailModal}
+	{#if showEmailModal}
 			<div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
 				<div class="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6">
 					<div class="flex items-center justify-between mb-6">
@@ -461,7 +374,6 @@
 				</div>
 			</div>
 		{/if}
-	{:else}
 		<!-- Create form -->
 		<div class="mb-6">
 			<h1 class="text-2xl font-bold text-gray-900 mb-1">Create Document</h1>
@@ -487,7 +399,7 @@
 		</div>
 
 		<!-- Action buttons -->
-		<div class="flex gap-3 mb-6">
+		<div class="flex flex-wrap items-center gap-2 mb-6">
 			<button
 				onclick={handleSubmit}
 				disabled={submitting}
@@ -509,6 +421,30 @@
 			</button>
 			{#if submitError}
 				<div class="flex items-center text-red-600 text-sm">{submitError}</div>
+			{/if}
+			{#if createdDoc}
+				<div class="flex items-center gap-1 ml-2 text-green-600 text-sm font-medium">
+					<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+					{getDocNumber() ? `${docTypeLabel} #${getDocNumber()} created` : 'Created'}
+				</div>
+				<button onclick={handleDownloadPdf} disabled={actionLoading === 'pdf'} class="px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg cursor-pointer disabled:opacity-50">
+					{actionLoading === 'pdf' ? '...' : 'PDF'}
+				</button>
+				<button onclick={openInXero} class="px-3 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg cursor-pointer">
+					Open in Xero
+				</button>
+				<button onclick={handleSendViaXero} disabled={actionLoading === 'send'} class="px-3 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg cursor-pointer disabled:opacity-50">
+					{actionLoading === 'send' ? '...' : 'Send via Xero'}
+				</button>
+				<button onclick={openEmailModal} class="px-3 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg cursor-pointer">
+					Email PDF
+				</button>
+				<button onclick={resetForm} class="px-3 py-2 text-brand-600 hover:text-brand-700 text-sm font-medium cursor-pointer">
+					New
+				</button>
+			{/if}
+			{#if actionMessage}
+				<div class="text-blue-600 text-sm">{actionMessage}</div>
 			{/if}
 		</div>
 
@@ -742,5 +678,4 @@
 				</div>
 			</div>
 		</div>
-	{/if}
 </div>
