@@ -334,7 +334,7 @@
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 	{#if showEmailModal}
 			<div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-				<div class="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6">
+				<div class="bg-white dark:bg-gray-900 rounded-2xl shadow-xl max-w-lg w-full p-6">
 					<div class="flex items-center justify-between mb-6">
 						<h3 class="text-lg font-semibold text-gray-900">Send PDF via Email</h3>
 						<button onclick={() => (showEmailModal = false)} class="text-gray-400 hover:text-gray-600 cursor-pointer">
@@ -346,15 +346,15 @@
 
 					<div class="space-y-4">
 						<div>
-							<label for="email-to" class="block text-sm font-medium text-gray-700 mb-1">To</label>
+							<label for="email-to" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">To</label>
 							<input id="email-to" type="email" bind:value={emailTo} class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
 						</div>
 						<div>
-							<label for="email-subject" class="block text-sm font-medium text-gray-700 mb-1">Subject</label>
+							<label for="email-subject" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Subject</label>
 							<input id="email-subject" type="text" bind:value={emailSubject} class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
 						</div>
 						<div>
-							<label for="email-body" class="block text-sm font-medium text-gray-700 mb-1">Message</label>
+							<label for="email-body" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Message</label>
 							<textarea id="email-body" bind:value={emailBody} rows="5" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent resize-none"></textarea>
 						</div>
 					</div>
@@ -434,17 +434,14 @@
 				<button onclick={handleDownloadPdf} disabled={actionLoading === 'pdf'} class="px-3 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-lg cursor-pointer disabled:opacity-50">
 					{actionLoading === 'pdf' ? '...' : 'PDF'}
 				</button>
-				<button onclick={openInXero} class="px-3 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg cursor-pointer">
+				<button onclick={openInXero} class="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg cursor-pointer">
 					Open in Xero
 				</button>
-				<button onclick={handleSendViaXero} disabled={actionLoading === 'send'} class="px-3 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg cursor-pointer disabled:opacity-50">
-					{actionLoading === 'send' ? '...' : 'Send via Xero'}
-				</button>
-				<button onclick={openEmailModal} class="px-3 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-lg cursor-pointer">
+				<button onclick={openEmailModal} class="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-lg cursor-pointer">
 					Email PDF
 				</button>
-				<button onclick={resetForm} class="px-3 py-2 text-brand-600 hover:text-brand-700 text-sm font-medium cursor-pointer">
-					New
+				<button onclick={resetForm} class="px-4 py-2 bg-brand-100 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300 hover:bg-brand-200 dark:hover:bg-brand-900/50 text-sm font-medium rounded-lg cursor-pointer">
+					+ New
 				</button>
 			{/if}
 			{#if actionMessage}
@@ -460,23 +457,23 @@
 					<h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide mb-4">Contact</h3>
 					<div class="space-y-3">
 						<div>
-							<label for="contact-name" class="block text-sm font-medium text-gray-700 mb-1">Name <span class="text-red-500">*</span></label>
+							<label for="contact-name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name <span class="text-red-500">*</span></label>
 							<input
 								id="contact-name"
 								type="text"
 								bind:value={contactName}
 								placeholder="Contact or company name"
-								class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent placeholder:text-gray-400"
+								class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent placeholder:text-gray-400 dark:placeholder:text-gray-500"
 							/>
 						</div>
 						<div>
-							<label for="contact-email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+							<label for="contact-email" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
 							<input
 								id="contact-email"
 								type="email"
 								bind:value={contactEmail}
 								placeholder="email@example.com"
-								class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent placeholder:text-gray-400"
+								class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent placeholder:text-gray-400 dark:placeholder:text-gray-500"
 							/>
 						</div>
 					</div>
@@ -487,25 +484,25 @@
 					<h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide mb-4">Details</h3>
 					<div class="space-y-3">
 						<div>
-							<label for="doc-date" class="block text-sm font-medium text-gray-700 mb-1">Date</label>
+							<label for="doc-date" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date</label>
 							<input id="doc-date" type="date" bind:value={docDate} class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
 						</div>
 						<div>
-							<label for="due-date" class="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+							<label for="due-date" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Due Date</label>
 							<input id="due-date" type="date" bind:value={dueDate} class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent" />
 						</div>
 						<div>
-							<label for="reference" class="block text-sm font-medium text-gray-700 mb-1">Reference</label>
+							<label for="reference" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Reference</label>
 							<input
 								id="reference"
 								type="text"
 								bind:value={reference}
 								placeholder="Optional reference"
-								class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent placeholder:text-gray-400"
+								class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent placeholder:text-gray-400 dark:placeholder:text-gray-500"
 							/>
 						</div>
 						<div>
-							<label for="currency" class="block text-sm font-medium text-gray-700 mb-1">Currency</label>
+							<label for="currency" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Currency</label>
 							<select id="currency" bind:value={currency} class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent bg-white">
 								<option value="ZAR">ZAR - South African Rand</option>
 								{#each currencies.filter((c) => c.code !== 'ZAR') as cur}
@@ -539,7 +536,7 @@
 					<div class="overflow-x-auto">
 						<table class="w-full text-sm">
 							<thead>
-								<tr class="text-left text-xs font-medium text-gray-500 uppercase tracking-wide">
+								<tr class="text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
 									<th class="px-4 py-3 w-10">#</th>
 									<th class="px-4 py-3">Description</th>
 									<th class="px-4 py-3 w-24">Account</th>
@@ -561,7 +558,7 @@
 												type="text"
 												bind:value={item.description}
 												placeholder="Item description"
-												class="w-full px-2 py-1.5 border border-transparent hover:border-gray-200 focus:border-brand-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-brand-500 placeholder:text-gray-300"
+												class="w-full px-2 py-1.5 border border-transparent hover:border-gray-200 dark:hover:border-gray-600 focus:border-brand-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-brand-500 placeholder:text-gray-300 dark:bg-transparent dark:text-white"
 											/>
 										</td>
 										<td class="px-4 py-2">
@@ -569,7 +566,7 @@
 												type="text"
 												bind:value={item.accountCode}
 												placeholder="Code"
-												class="w-full px-2 py-1.5 border border-transparent hover:border-gray-200 focus:border-brand-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-brand-500 placeholder:text-gray-300"
+												class="w-full px-2 py-1.5 border border-transparent hover:border-gray-200 dark:hover:border-gray-600 focus:border-brand-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-brand-500 placeholder:text-gray-300 dark:bg-transparent dark:text-white"
 											/>
 										</td>
 										{#each trackingCategories as cat}
@@ -605,7 +602,7 @@
 												class="w-full px-2 py-1.5 border border-transparent hover:border-gray-200 focus:border-brand-300 rounded text-sm text-right focus:outline-none focus:ring-1 focus:ring-brand-500"
 											/>
 										</td>
-										<td class="px-4 py-2 text-right font-medium text-gray-700">
+										<td class="px-4 py-2 text-right font-medium text-gray-700 dark:text-gray-300">
 											{fmt(Number(item.quantity) * Number(item.unitPrice))}
 										</td>
 										<td class="px-4 py-2">
@@ -660,24 +657,30 @@
 						</button>
 					</div>
 
-					<!-- Totals -->
-					<div class="px-5 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-b-xl">
-						<div class="max-w-xs ml-auto space-y-1.5 text-sm">
-							<div class="flex justify-between text-gray-600 dark:text-gray-400">
-								<span>Subtotal</span>
-								<span>{currency} {fmt(subtotal)}</span>
-							</div>
-							<div class="flex justify-between text-gray-600 dark:text-gray-400">
-								<span>Tax (15%)</span>
-								<span>{currency} {fmt(tax)}</span>
-							</div>
-							<div class="border-t border-gray-200 dark:border-gray-600 pt-1.5 mt-1.5">
-								<div class="flex justify-between font-semibold text-gray-900 dark:text-white text-base">
-									<span>Total</span>
-									<span>{currency} {fmt(total)}</span>
-								</div>
-							</div>
-						</div>
+					<!-- Totals - right aligned under Amount column -->
+					<div class="border-t border-gray-200 dark:border-gray-700">
+						<table class="w-full text-sm">
+							<tbody>
+								<tr>
+									<td></td>
+									<td class="px-4 py-2 text-right text-gray-500 dark:text-gray-400">Subtotal</td>
+									<td class="px-4 py-2 text-right text-gray-700 dark:text-gray-300 w-36">{currency} {fmt(subtotal)}</td>
+									<td class="w-24"></td>
+								</tr>
+								<tr>
+									<td></td>
+									<td class="px-4 py-2 text-right text-gray-500 dark:text-gray-400">Tax (15%)</td>
+									<td class="px-4 py-2 text-right text-gray-700 dark:text-gray-300 w-36">{currency} {fmt(tax)}</td>
+									<td class="w-24"></td>
+								</tr>
+								<tr class="border-t border-gray-200 dark:border-gray-700">
+									<td></td>
+									<td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white text-base">Total</td>
+									<td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white text-base w-36">{currency} {fmt(total)}</td>
+									<td class="w-24"></td>
+								</tr>
+							</tbody>
+						</table>
 					</div>
 				</div>
 			</div>
