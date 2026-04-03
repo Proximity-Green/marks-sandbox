@@ -4,19 +4,20 @@ const XERO_API_URL = 'https://api.xero.com/api.xro/2.0';
 const XERO_CONNECTIONS_URL = 'https://api.xero.com/connections';
 const SCOPES = 'openid profile email accounting.invoices accounting.contacts accounting.settings';
 
-function corsHeaders(env) {
+function corsHeaders(env, request) {
+  const origin = request?.headers?.get('Origin') || '*';
   return {
-    'Access-Control-Allow-Origin': env.FRONTEND_URL,
+    'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Credentials': 'true',
   };
 }
 
-function jsonResponse(data, status, env) {
+function jsonResponse(data, status, env, request) {
   return new Response(JSON.stringify(data), {
     status,
-    headers: { 'Content-Type': 'application/json', ...corsHeaders(env) },
+    headers: { 'Content-Type': 'application/json', ...corsHeaders(env, request) },
   });
 }
 
@@ -35,7 +36,7 @@ export default {
     const url = new URL(request.url);
 
     if (request.method === 'OPTIONS') {
-      return new Response(null, { status: 204, headers: corsHeaders(env) });
+      return new Response(null, { status: 204, headers: corsHeaders(env, request) });
     }
 
     // --- OAuth: Start connection ---
@@ -120,19 +121,19 @@ export default {
     // --- Auth status check ---
     if (url.pathname === '/auth/status') {
       const sessionId = getSessionId(request);
-      if (!sessionId) return jsonResponse({ authenticated: false }, 200, env);
+      if (!sessionId) return jsonResponse({ authenticated: false }, 200, env, request);
 
       const tokenData = await env.TOKENS.get(`tokens:${sessionId}`);
-      return jsonResponse({ authenticated: !!tokenData }, 200, env);
+      return jsonResponse({ authenticated: !!tokenData }, 200, env, request);
     }
 
     // --- Get Currencies ---
     if (url.pathname === '/currencies' && request.method === 'GET') {
       const sessionId = getSessionId(request);
-      if (!sessionId) return jsonResponse({ error: 'Not authenticated' }, 401, env);
+      if (!sessionId) return jsonResponse({ error: 'Not authenticated' }, 401, env, request);
 
       let tokenData = JSON.parse(await env.TOKENS.get(`tokens:${sessionId}`) || 'null');
-      if (!tokenData) return jsonResponse({ error: 'Not authenticated' }, 401, env);
+      if (!tokenData) return jsonResponse({ error: 'Not authenticated' }, 401, env, request);
 
       const currRes = await fetch(`${XERO_API_URL}/Currencies`, {
         headers: {
@@ -143,19 +144,19 @@ export default {
 
       const result = await currRes.json();
       if (!currRes.ok) {
-        return jsonResponse({ error: result.Message || 'Failed to fetch currencies' }, currRes.status, env);
+        return jsonResponse({ error: result.Message || 'Failed to fetch currencies' }, currRes.status, env, request);
       }
 
-      return jsonResponse({ currencies: result.Currencies || [] }, 200, env);
+      return jsonResponse({ currencies: result.Currencies || [] }, 200, env, request);
     }
 
     // --- Create Invoice ---
     if (url.pathname === '/invoice' && request.method === 'POST') {
       const sessionId = getSessionId(request);
-      if (!sessionId) return jsonResponse({ error: 'Not authenticated' }, 401, env);
+      if (!sessionId) return jsonResponse({ error: 'Not authenticated' }, 401, env, request);
 
       let tokenData = JSON.parse(await env.TOKENS.get(`tokens:${sessionId}`) || 'null');
-      if (!tokenData) return jsonResponse({ error: 'Not authenticated' }, 401, env);
+      if (!tokenData) return jsonResponse({ error: 'Not authenticated' }, 401, env, request);
 
       // Refresh token if expired
       if (Date.now() > tokenData.expires_at - 60000) {
@@ -172,7 +173,7 @@ export default {
         });
 
         if (!refreshRes.ok) {
-          return jsonResponse({ error: 'Session expired, please reconnect' }, 401, env);
+          return jsonResponse({ error: 'Session expired, please reconnect' }, 401, env, request);
         }
 
         const newTokens = await refreshRes.json();
@@ -213,7 +214,7 @@ export default {
       const result = await invoiceRes.json();
 
       if (!invoiceRes.ok) {
-        return jsonResponse({ error: result.Message || 'Xero API error' }, invoiceRes.status, env);
+        return jsonResponse({ error: result.Message || 'Xero API error' }, invoiceRes.status, env, request);
       }
 
       const created = result.Invoices?.[0];
@@ -221,9 +222,9 @@ export default {
         success: true,
         invoiceId: created?.InvoiceID,
         invoiceNumber: created?.InvoiceNumber,
-      }, 200, env);
+      }, 200, env, request);
     }
 
-    return jsonResponse({ error: 'Not found' }, 404, env);
+    return jsonResponse({ error: 'Not found' }, 404, env, request);
   },
 };

@@ -209,12 +209,14 @@ document.getElementById('invoice-form').addEventListener('submit', async (e) => 
       },
       body: JSON.stringify(invoice),
     });
-    const data = await res.json();
+    const text = await res.text();
+    let data;
+    try { data = JSON.parse(text); } catch { data = { error: text }; }
     if (res.ok) {
       msg.textContent = `Invoice ${data.invoiceNumber || ''} created successfully!`;
       msg.className = 'success';
     } else {
-      msg.textContent = `Error: ${data.error || 'Failed to create invoice'}`;
+      msg.textContent = `Error (${res.status}): ${data.error || JSON.stringify(data)}`;
       msg.className = 'error';
     }
   } catch (err) {
