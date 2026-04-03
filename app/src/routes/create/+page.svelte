@@ -67,15 +67,22 @@
 	let emailSubject = $state('');
 	let emailBody = $state('');
 
-	// Totals - computed explicitly on every change
+	// Totals - simple state updated on every change
 	let subtotal = $state(0);
 	let tax = $state(0);
 	let total = $state(0);
 
-	function recalcTotals() {
-		subtotal = lineItems.reduce((sum, item) => sum + Number(item.quantity || 0) * Number(item.unitPrice || 0), 0);
-		tax = subtotal * 0.15;
-		total = subtotal + tax;
+	function recalc() {
+		// Use setTimeout to ensure bind:value has updated first
+		setTimeout(() => {
+			let s = 0;
+			for (const item of lineItems) {
+				s += Number(item.quantity || 0) * Number(item.unitPrice || 0);
+			}
+			subtotal = s;
+			tax = s * 0.15;
+			total = s + s * 0.15;
+		}, 0);
 	}
 
 	const RANDOM_NAMES = ['Acme Corp', 'Globex Inc', 'Initech', 'Umbrella Ltd', 'Stark Industries', 'Wayne Enterprises', 'Oscorp', 'Cyberdyne Systems'];
@@ -92,16 +99,15 @@
 		reference = prefix + '-' + randomInt(1000, 9999);
 		const numLines = randomInt(1, 4);
 		const usedItems = new Set<string>();
-		const newLines: typeof lineItems = [];
+		const newLines: LineItem[] = [];
 		for (let i = 0; i < numLines; i++) {
-			let item: string;
-			do { item = randomPick(RANDOM_ITEMS); } while (usedItems.has(item));
-			usedItems.add(item);
-			newLines.push({ description: item, accountCode: docType === 'invoice' ? '200' : '', trackingCategoryId: '', trackingOptionId: '', quantity: randomInt(1, 10), unitPrice: randomInt(50, 500) });
+			let desc: string;
+			do { desc = randomPick(RANDOM_ITEMS); } while (usedItems.has(desc));
+			usedItems.add(desc);
+			newLines.push({ id: nextId++, description: desc, accountCode: docType === 'invoice' ? '200' : '', trackingCategoryId: '', trackingOptionId: '', quantity: randomInt(1, 10), unitPrice: randomInt(50, 500) });
 		}
 		lineItems = newLines;
-		nextId = newLines.length + 1;
-		recalcTotals();
+		recalc();
 	}
 
 	let docTypeLabel = $derived(
@@ -147,7 +153,7 @@
 	function removeLineItem(index: number) {
 		if (lineItems.length > 1) {
 			lineItems = lineItems.filter((_, i) => i !== index);
-			recalcTotals();
+			recalc();
 		}
 	}
 
@@ -663,7 +669,7 @@
 											<input
 												type="number"
 												bind:value={item.quantity}
-												oninput={recalcTotals}
+												oninput={recalc}
 												min="0"
 												step="1"
 												class="w-full px-2 py-1.5 border border-transparent hover:border-gray-200 focus:border-brand-300 rounded text-sm text-right focus:outline-none focus:ring-1 focus:ring-brand-500"
@@ -673,7 +679,7 @@
 											<input
 												type="number"
 												bind:value={item.unitPrice}
-												oninput={recalcTotals}
+												oninput={recalc}
 												min="0"
 												step="0.01"
 												class="w-full px-2 py-1.5 border border-transparent hover:border-gray-200 focus:border-brand-300 rounded text-sm text-right focus:outline-none focus:ring-1 focus:ring-brand-500"
