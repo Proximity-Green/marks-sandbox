@@ -3,18 +3,23 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Xero Invoice</title>
-  <link rel="stylesheet" href="style.css">
+  <title>Xero Documents</title>
+  <link rel="stylesheet" href="style.css?v=3">
 </head>
 <body>
   <div class="container">
     <header>
-      <h1>Create Invoice</h1>
       <div id="auth-status">
         <button id="connect-btn" class="btn btn-connect">Connect to Xero</button>
         <span id="connected-msg" class="hidden">Connected to Xero <button id="logout-btn" class="btn btn-logout">Logout</button></span>
       </div>
     </header>
+
+    <nav class="doc-tabs">
+      <button class="tab active" data-type="invoice">Invoice</button>
+      <button class="tab" data-type="quote">Quote</button>
+      <button class="tab" data-type="po">Purchase Order</button>
+    </nav>
 
     <form id="invoice-form">
       <section class="form-section">
@@ -33,11 +38,11 @@
         <h2>Details</h2>
         <div class="form-row form-row-half">
           <div>
-            <label for="invoice-date">Invoice Date</label>
+            <label for="invoice-date" id="date-label">Invoice Date</label>
             <input type="text" id="invoice-date" required placeholder="dd/mm/yyyy" pattern="\d{2}/\d{2}/\d{4}">
           </div>
           <div>
-            <label for="due-date">Due Date</label>
+            <label for="due-date" id="due-label">Due Date</label>
             <input type="text" id="due-date" required placeholder="dd/mm/yyyy" pattern="\d{2}/\d{2}/\d{4}">
           </div>
         </div>
@@ -82,12 +87,16 @@
         </div>
       </section>
 
+      <div id="authorise-row" class="form-check">
+        <label><input type="checkbox" id="authorise"> Authorise invoice (mark as approved)</label>
+      </div>
+
       <button type="button" id="random-btn" class="btn btn-secondary" style="width:100%;margin-bottom:0.5rem;">Fill Random Test Data</button>
-      <button type="submit" id="submit-btn" class="btn btn-primary" disabled>Submit to Xero</button>
+      <button type="submit" id="submit-btn" class="btn btn-primary" disabled>Submit Draft Invoice to Xero</button>
       <div id="status-msg" class="hidden"></div>
     </form>
   </div>
 
-  <script src="app.js?v=2"></script>
+  <script src="app.js?v=3"></script>
 </body>
 </html>

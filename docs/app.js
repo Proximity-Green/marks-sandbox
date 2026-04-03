@@ -1,5 +1,34 @@
 const API_URL = 'https://xero-invoice-worker.mark-442.workers.dev';
 
+// --- Document Type ---
+
+let docType = 'invoice';
+
+const DOC_CONFIG = {
+  invoice: { dateLabel: 'Invoice Date', dueLabel: 'Due Date', submitLabel: 'Submit Draft Invoice to Xero', refPrefix: 'INV' },
+  quote:   { dateLabel: 'Quote Date',   dueLabel: 'Expiry Date', submitLabel: 'Submit Quote to Xero', refPrefix: 'QU' },
+  po:      { dateLabel: 'Order Date',   dueLabel: 'Delivery Date', submitLabel: 'Submit Purchase Order to Xero', refPrefix: 'PO' },
+};
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelector('.tab.active').classList.remove('active');
+    tab.classList.add('active');
+    docType = tab.dataset.type;
+    const cfg = DOC_CONFIG[docType];
+    document.getElementById('date-label').textContent = cfg.dateLabel;
+    document.getElementById('due-label').textContent = cfg.dueLabel;
+    document.getElementById('submit-btn').textContent = cfg.submitLabel;
+    document.getElementById('authorise-row').style.display = docType === 'invoice' ? '' : 'none';
+    document.getElementById('authorise').checked = false;
+  });
+});
+
+document.getElementById('authorise').addEventListener('change', (e) => {
+  const btn = document.getElementById('submit-btn');
+  btn.textContent = e.target.checked ? 'Submit & Authorise Invoice' : DOC_CONFIG[docType].submitLabel;
+});
+
 // --- Auth ---
 
 function checkAuth() {
@@ -125,11 +154,11 @@ function randomInt(min, max) { return Math.floor(Math.random() * (max - min + 1)
 
 document.getElementById('random-btn').addEventListener('click', () => {
   const name = randomPick(RANDOM_NAMES);
+  const cfg = DOC_CONFIG[docType];
   document.getElementById('contact-name').value = name;
   document.getElementById('contact-email').value = name.toLowerCase().replace(/\s+/g, '.') + '@example.com';
-  document.getElementById('reference').value = 'INV-' + randomInt(1000, 9999);
+  document.getElementById('reference').value = cfg.refPrefix + '-' + randomInt(1000, 9999);
 
-  // Clear existing lines
   document.querySelector('#line-items tbody').innerHTML = '';
   const numLines = randomInt(1, 4);
   const usedItems = new Set();
@@ -188,7 +217,8 @@ document.getElementById('invoice-form').addEventListener('submit', async (e) => 
     });
   });
 
-  const invoice = {
+  const payload = {
+    docType,
     contact: {
       name: document.getElementById('contact-name').value,
       email: document.getElementById('contact-email').value,
@@ -197,23 +227,26 @@ document.getElementById('invoice-form').addEventListener('submit', async (e) => 
     dueDate: toISODate(document.getElementById('due-date').value),
     reference: document.getElementById('reference').value,
     currencyCode: document.getElementById('currency').value,
+    authorise: docType === 'invoice' && document.getElementById('authorise').checked,
     lineItems,
   };
 
+  const docLabels = { invoice: 'Invoice', quote: 'Quote', po: 'Purchase Order' };
+
   try {
-    const res = await fetch(`${API_URL}/invoice`, {
+    const res = await fetch(`${API_URL}/create`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${session}`,
       },
-      body: JSON.stringify(invoice),
+      body: JSON.stringify(payload),
     });
     const text = await res.text();
     let data;
     try { data = JSON.parse(text); } catch { data = { error: text }; }
     if (res.ok) {
-      msg.textContent = `Invoice ${data.invoiceNumber || ''} created successfully!`;
+      msg.textContent = `${docLabels[docType]} ${data.number || ''} created successfully!`;
       msg.className = 'success';
     } else {
       msg.textContent = `Error (${res.status}): ${data.error || JSON.stringify(data)}`;
@@ -226,7 +259,7 @@ document.getElementById('invoice-form').addEventListener('submit', async (e) => 
 
   msg.classList.remove('hidden');
   btn.disabled = false;
-  btn.textContent = 'Submit to Xero';
+  btn.textContent = DOC_CONFIG[docType].submitLabel;
 });
 
 init();

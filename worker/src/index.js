@@ -31,6 +31,38 @@ function generateSessionId() {
   return crypto.randomUUID().replace(/-/g, '');
 }
 
+async function getTokenData(request, env) {
+  const sessionId = getSessionId(request);
+  if (!sessionId) return null;
+  const raw = await env.TOKENS.get(`tokens:${sessionId}`);
+  if (!raw) return null;
+  const tokenData = JSON.parse(raw);
+  tokenData._sessionId = sessionId;
+
+  // Refresh if expired
+  if (Date.now() > tokenData.expires_at - 60000) {
+    const refreshRes = await fetch(XERO_TOKEN_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Authorization: `Basic ${btoa(`${env.XERO_CLIENT_ID}:${env.XERO_CLIENT_SECRET}`)}`,
+      },
+      body: new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: tokenData.refresh_token,
+      }),
+    });
+    if (!refreshRes.ok) return null;
+    const newTokens = await refreshRes.json();
+    tokenData.access_token = newTokens.access_token;
+    tokenData.refresh_token = newTokens.refresh_token;
+    tokenData.expires_at = Date.now() + newTokens.expires_in * 1000;
+    await env.TOKENS.put(`tokens:${sessionId}`, JSON.stringify(tokenData), { expirationTtl: 86400 });
+  }
+
+  return tokenData;
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -95,7 +127,6 @@ export default {
 
       const tokens = await tokenRes.json();
 
-      // Get tenant ID
       const connRes = await fetch(XERO_CONNECTIONS_URL, {
         headers: { Authorization: `Bearer ${tokens.access_token}` },
       });
@@ -109,7 +140,6 @@ export default {
         tenant_id: tenantId,
       }), { expirationTtl: 86400 });
 
-      // Redirect back to frontend with session token in URL fragment
       return new Response(null, {
         status: 302,
         headers: {
@@ -122,17 +152,13 @@ export default {
     if (url.pathname === '/auth/status') {
       const sessionId = getSessionId(request);
       if (!sessionId) return jsonResponse({ authenticated: false }, 200, env, request);
-
       const tokenData = await env.TOKENS.get(`tokens:${sessionId}`);
       return jsonResponse({ authenticated: !!tokenData }, 200, env, request);
     }
 
     // --- Get Currencies ---
     if (url.pathname === '/currencies' && request.method === 'GET') {
-      const sessionId = getSessionId(request);
-      if (!sessionId) return jsonResponse({ error: 'Not authenticated' }, 401, env, request);
-
-      let tokenData = JSON.parse(await env.TOKENS.get(`tokens:${sessionId}`) || 'null');
+      const tokenData = await getTokenData(request, env);
       if (!tokenData) return jsonResponse({ error: 'Not authenticated' }, 401, env, request);
 
       const currRes = await fetch(`${XERO_API_URL}/Currencies`, {
@@ -150,79 +176,92 @@ export default {
       return jsonResponse({ currencies: result.Currencies || [] }, 200, env, request);
     }
 
-    // --- Create Invoice ---
-    if (url.pathname === '/invoice' && request.method === 'POST') {
-      const sessionId = getSessionId(request);
-      if (!sessionId) return jsonResponse({ error: 'Not authenticated' }, 401, env, request);
-
-      let tokenData = JSON.parse(await env.TOKENS.get(`tokens:${sessionId}`) || 'null');
+    // --- Create Document (Invoice / Quote / PO) ---
+    if (url.pathname === '/create' && request.method === 'POST') {
+      const tokenData = await getTokenData(request, env);
       if (!tokenData) return jsonResponse({ error: 'Not authenticated' }, 401, env, request);
 
-      // Refresh token if expired
-      if (Date.now() > tokenData.expires_at - 60000) {
-        const refreshRes = await fetch(XERO_TOKEN_URL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            Authorization: `Basic ${btoa(`${env.XERO_CLIENT_ID}:${env.XERO_CLIENT_SECRET}`)}`,
-          },
-          body: new URLSearchParams({
-            grant_type: 'refresh_token',
-            refresh_token: tokenData.refresh_token,
-          }),
-        });
+      const body = await request.json();
+      const { docType } = body;
 
-        if (!refreshRes.ok) {
-          return jsonResponse({ error: 'Session expired, please reconnect' }, 401, env, request);
-        }
+      const lineItems = body.lineItems.map(item => ({
+        Description: item.description,
+        Quantity: item.quantity,
+        UnitAmount: item.unitAmount,
+        AccountCode: '200',
+      }));
 
-        const newTokens = await refreshRes.json();
-        tokenData.access_token = newTokens.access_token;
-        tokenData.refresh_token = newTokens.refresh_token;
-        tokenData.expires_at = Date.now() + newTokens.expires_in * 1000;
-        await env.TOKENS.put(`tokens:${sessionId}`, JSON.stringify(tokenData), { expirationTtl: 86400 });
+      let endpoint, payload, numberField;
+
+      if (docType === 'invoice') {
+        const status = body.authorise ? 'AUTHORISED' : 'DRAFT';
+        endpoint = 'Invoices';
+        numberField = 'InvoiceNumber';
+        payload = { Invoices: [{
+          Type: 'ACCREC',
+          Contact: { Name: body.contact.name, EmailAddress: body.contact.email || undefined },
+          Date: body.date,
+          DueDate: body.dueDate,
+          Reference: body.reference || undefined,
+          CurrencyCode: body.currencyCode || undefined,
+          LineItems: lineItems,
+          Status: status,
+        }]};
+      } else if (docType === 'quote') {
+        endpoint = 'Quotes';
+        numberField = 'QuoteNumber';
+        payload = { Quotes: [{
+          Contact: { Name: body.contact.name, EmailAddress: body.contact.email || undefined },
+          Date: body.date,
+          ExpiryDate: body.dueDate,
+          Reference: body.reference || undefined,
+          CurrencyCode: body.currencyCode || undefined,
+          LineItems: lineItems,
+          Status: 'DRAFT',
+        }]};
+      } else if (docType === 'po') {
+        endpoint = 'PurchaseOrders';
+        numberField = 'PurchaseOrderNumber';
+        payload = { PurchaseOrders: [{
+          Contact: { Name: body.contact.name, EmailAddress: body.contact.email || undefined },
+          Date: body.date,
+          DeliveryDate: body.dueDate,
+          Reference: body.reference || undefined,
+          CurrencyCode: body.currencyCode || undefined,
+          LineItems: lineItems,
+          Status: 'DRAFT',
+        }]};
+      } else {
+        return jsonResponse({ error: 'Invalid document type' }, 400, env, request);
       }
 
-      const body = await request.json();
-
-      const xeroInvoice = {
-        Type: 'ACCREC',
-        Contact: { Name: body.contact.name, EmailAddress: body.contact.email || undefined },
-        Date: body.date,
-        DueDate: body.dueDate,
-        Reference: body.reference || undefined,
-        CurrencyCode: body.currencyCode || undefined,
-        LineItems: body.lineItems.map(item => ({
-          Description: item.description,
-          Quantity: item.quantity,
-          UnitAmount: item.unitAmount,
-          AccountCode: '200',
-        })),
-        Status: 'DRAFT',
-      };
-
-      const invoiceRes = await fetch(`${XERO_API_URL}/Invoices`, {
+      const apiRes = await fetch(`${XERO_API_URL}/${endpoint}`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${tokenData.access_token}`,
           'Content-Type': 'application/json',
           'Xero-Tenant-Id': tokenData.tenant_id,
         },
-        body: JSON.stringify({ Invoices: [xeroInvoice] }),
+        body: JSON.stringify(payload),
       });
 
-      const result = await invoiceRes.json();
+      const result = await apiRes.json();
 
-      if (!invoiceRes.ok) {
-        return jsonResponse({ error: result.Message || 'Xero API error' }, invoiceRes.status, env, request);
+      if (!apiRes.ok) {
+        return jsonResponse({ error: result.Message || JSON.stringify(result) }, apiRes.status, env, request);
       }
 
-      const created = result.Invoices?.[0];
+      const items = result[endpoint] || [];
+      const created = items[0];
       return jsonResponse({
         success: true,
-        invoiceId: created?.InvoiceID,
-        invoiceNumber: created?.InvoiceNumber,
+        number: created?.[numberField] || created?.InvoiceNumber || '',
       }, 200, env, request);
+    }
+
+    // Legacy endpoint
+    if (url.pathname === '/invoice' && request.method === 'POST') {
+      return jsonResponse({ error: 'Use /create endpoint instead' }, 400, env, request);
     }
 
     return jsonResponse({ error: 'Not found' }, 404, env, request);
