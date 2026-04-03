@@ -155,7 +155,15 @@ function init() {
 }
 
 function toDateStr(d) {
-  return d.toISOString().split('T')[0];
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
+
+function toISODate(str) {
+  const [dd, mm, yyyy] = str.split('/');
+  return `${yyyy}-${mm}-${dd}`;
 }
 
 // --- Submit ---
@@ -185,8 +193,8 @@ document.getElementById('invoice-form').addEventListener('submit', async (e) => 
       name: document.getElementById('contact-name').value,
       email: document.getElementById('contact-email').value,
     },
-    date: document.getElementById('invoice-date').value,
-    dueDate: document.getElementById('due-date').value,
+    date: toISODate(document.getElementById('invoice-date').value),
+    dueDate: toISODate(document.getElementById('due-date').value),
     reference: document.getElementById('reference').value,
     currencyCode: document.getElementById('currency').value,
     lineItems,
