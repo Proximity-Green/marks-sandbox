@@ -94,6 +94,19 @@ td input {
 td:nth-child(2) input, td:nth-child(3) input { text-align: right; }
 td:nth-child(4) { text-align: right; font-weight: 500; color: #333; padding-top: 0.6rem; }
 
+.btn-logout {
+  background: none;
+  color: #e55;
+  border: 1px solid #e55;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.8rem;
+  margin-left: 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.btn-logout:hover { background: #e55; color: #fff; }
+
 .btn-remove {
   background: none;
   border: none;

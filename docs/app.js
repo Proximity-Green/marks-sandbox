@@ -39,6 +39,11 @@ document.getElementById('connect-btn').addEventListener('click', () => {
   window.location.href = `${API_URL}/auth/connect`;
 });
 
+document.getElementById('logout-btn').addEventListener('click', () => {
+  localStorage.removeItem('xero_session');
+  setConnected(false);
+});
+
 // --- Line Items ---
 
 let lineId = 0;
