@@ -291,7 +291,7 @@ export default {
           Quantity: item.quantity,
           UnitAmount: item.unitAmount,
         };
-        if (docType !== 'po') li.AccountCode = '200';
+        if (docType === 'invoice') li.AccountCode = '200';
         return li;
       });
 
