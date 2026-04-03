@@ -21,7 +21,7 @@ body {
 
 .form-grid {
   display: grid;
-  grid-template-columns: 320px 1fr;
+  grid-template-columns: 400px 1fr;
   gap: 1.5rem;
   align-items: start;
 }
@@ -245,6 +245,14 @@ td select {
 }
 
 .btn-email:hover { background: #5a32a3; }
+
+.btn-email-custom {
+  background: #e8590c;
+  color: #fff;
+  font-weight: 500;
+}
+
+.btn-email-custom:hover { background: #d04a08; }
 
 .btn {
   padding: 0.6rem 1.2rem;

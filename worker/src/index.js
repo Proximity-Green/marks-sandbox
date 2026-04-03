@@ -437,21 +437,19 @@ export default {
       });
     }
 
-    // --- Email Document ---
+    // --- Email via Xero ---
     if (url.pathname === '/email' && request.method === 'POST') {
       const tokenData = await getTokenData(request, env);
       if (!tokenData) return jsonResponse({ error: 'Not authenticated' }, 401, env, request);
 
       const body = await request.json();
-      const { id, type, email } = body;
-      if (!id || !type || !email) return jsonResponse({ error: 'Missing id, type, or email' }, 400, env, request);
+      const { id, type } = body;
+      if (!id || !type) return jsonResponse({ error: 'Missing id or type' }, 400, env, request);
 
       const endpoints = { invoice: 'Invoices', quote: 'Quotes', po: 'PurchaseOrders' };
       const ep = endpoints[type];
       if (!ep) return jsonResponse({ error: 'Invalid type' }, 400, env, request);
 
-      // For invoices: update contact email then use Xero's email endpoint
-      // For quotes/POs: same approach
       const emailRes = await fetch(`${XERO_API_URL}/${ep}/${id}/Email`, {
         method: 'POST',
         headers: {
@@ -471,6 +469,61 @@ export default {
           errMsg = await emailRes.text();
         }
         return jsonResponse({ error: errMsg }, emailRes.status, env, request);
+      }
+
+      return jsonResponse({ success: true }, 200, env, request);
+    }
+
+    // --- Email via Mailgun (with PDF attachment) ---
+    if (url.pathname === '/email-custom' && request.method === 'POST') {
+      const tokenData = await getTokenData(request, env);
+      if (!tokenData) return jsonResponse({ error: 'Not authenticated' }, 401, env, request);
+
+      const body = await request.json();
+      const { id, type, to, subject, message } = body;
+      if (!id || !type || !to) return jsonResponse({ error: 'Missing id, type, or to' }, 400, env, request);
+
+      const endpoints = { invoice: 'Invoices', quote: 'Quotes', po: 'PurchaseOrders' };
+      const ep = endpoints[type];
+      if (!ep) return jsonResponse({ error: 'Invalid type' }, 400, env, request);
+
+      // Fetch PDF from Xero
+      const pdfRes = await fetch(`${XERO_API_URL}/${ep}/${id}`, {
+        headers: {
+          Authorization: `Bearer ${tokenData.access_token}`,
+          'Xero-Tenant-Id': tokenData.tenant_id,
+          Accept: 'application/pdf',
+        },
+      });
+
+      if (!pdfRes.ok) {
+        return jsonResponse({ error: 'Failed to fetch PDF from Xero' }, pdfRes.status, env, request);
+      }
+
+      const pdfBuffer = await pdfRes.arrayBuffer();
+      const docLabels = { invoice: 'Invoice', quote: 'Quote', po: 'Purchase Order' };
+      const label = docLabels[type] || 'Document';
+      const filename = `${label.replace(' ', '-')}-${id}.pdf`;
+
+      // Send via Mailgun with multipart form
+      const formData = new FormData();
+      formData.append('from', `Xero Documents <postmaster@${env.MAILGUN_DOMAIN}>`);
+      formData.append('to', to);
+      formData.append('subject', subject || `${label} attached`);
+      formData.append('text', message || `Please find the attached ${label}.`);
+      formData.append('attachment', new Blob([pdfBuffer], { type: 'application/pdf' }), filename);
+
+      const mgRes = await fetch(`https://api.mailgun.net/v3/${env.MAILGUN_DOMAIN}/messages`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${btoa(`api:${env.MAILGUN_API_KEY}`)}`,
+        },
+        body: formData,
+      });
+
+      if (!mgRes.ok) {
+        const mgErr = await mgRes.text();
+        return jsonResponse({ error: `Mailgun error: ${mgErr}` }, mgRes.status, env, request);
       }
 
       return jsonResponse({ success: true }, 200, env, request);

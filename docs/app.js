@@ -400,6 +400,7 @@ document.getElementById('invoice-form').addEventListener('submit', async (e) => 
       };
       document.getElementById('view-xero-btn').href = xeroUrls[data.docType](data.id);
       document.getElementById('email-btn').onclick = () => emailDoc(data.id, data.docType);
+      document.getElementById('email-custom-btn').onclick = () => emailCustom(data.id, data.docType);
     } else {
       document.getElementById('post-actions').classList.add('hidden');
       msg.textContent = `Error (${res.status}): ${data.error || JSON.stringify(data)}`;
@@ -450,6 +451,45 @@ async function emailDoc(id, type) {
   } catch (err) {
     alert('Email failed: ' + err.message);
     btn.textContent = 'Email';
+    btn.disabled = false;
+  }
+}
+
+async function emailCustom(id, type) {
+  const session = localStorage.getItem('xero_session');
+  if (!session) return;
+  const defaultEmail = document.getElementById('contact-email').value || '';
+  const to = prompt('Email PDF to:', defaultEmail);
+  if (!to) return;
+  const docLabels = { invoice: 'Invoice', quote: 'Quote', po: 'Purchase Order' };
+  const label = docLabels[type] || 'Document';
+  const subject = prompt('Subject:', `${label} attached`);
+  if (subject === null) return;
+
+  const btn = document.getElementById('email-custom-btn');
+  btn.textContent = 'Sending...';
+  btn.disabled = true;
+  try {
+    const res = await fetch(`${API_URL}/email-custom`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session}`,
+      },
+      body: JSON.stringify({ id, type, to, subject, message: `Please find the attached ${label}.` }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      btn.textContent = 'Sent!';
+      setTimeout(() => { btn.textContent = 'Email PDF'; btn.disabled = false; }, 2000);
+    } else {
+      alert('Email failed: ' + (data.error || 'Unknown error'));
+      btn.textContent = 'Email PDF';
+      btn.disabled = false;
+    }
+  } catch (err) {
+    alert('Email failed: ' + err.message);
+    btn.textContent = 'Email PDF';
     btn.disabled = false;
   }
 }
