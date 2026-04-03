@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Xero Documents</title>
-  <link rel="stylesheet" href="style.css?v=3">
+  <link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
   <div class="container">
@@ -15,89 +15,121 @@
       </div>
     </header>
 
-    <nav class="doc-tabs">
-      <button class="tab active" data-type="invoice">Invoice</button>
-      <button class="tab" data-type="quote">Quote</button>
-      <button class="tab" data-type="po">Purchase Order</button>
+    <nav class="page-tabs">
+      <button class="page-tab active" data-page="create">Create</button>
+      <button class="page-tab" data-page="list">View All</button>
     </nav>
 
-    <form id="invoice-form">
-      <section class="form-section">
-        <h2>Contact</h2>
-        <div class="form-row">
-          <label for="contact-name">Name</label>
-          <input type="text" id="contact-name" required placeholder="Customer name">
-        </div>
-        <div class="form-row">
-          <label for="contact-email">Email</label>
-          <input type="email" id="contact-email" placeholder="customer@example.com">
-        </div>
-      </section>
+    <!-- CREATE PAGE -->
+    <div id="page-create">
+      <nav class="doc-tabs">
+        <button class="tab active" data-type="invoice">Invoice</button>
+        <button class="tab" data-type="quote">Quote</button>
+        <button class="tab" data-type="po">Purchase Order</button>
+      </nav>
 
-      <section class="form-section">
-        <h2>Details</h2>
-        <div class="form-row form-row-half">
-          <div>
-            <label for="invoice-date" id="date-label">Invoice Date</label>
-            <input type="text" id="invoice-date" required placeholder="dd/mm/yyyy" pattern="\d{2}/\d{2}/\d{4}">
+      <form id="invoice-form">
+        <section class="form-section">
+          <h2>Contact</h2>
+          <div class="form-row">
+            <label for="contact-name">Name</label>
+            <input type="text" id="contact-name" required placeholder="Customer name">
           </div>
-          <div>
-            <label for="due-date" id="due-label">Due Date</label>
-            <input type="text" id="due-date" required placeholder="dd/mm/yyyy" pattern="\d{2}/\d{2}/\d{4}">
+          <div class="form-row">
+            <label for="contact-email">Email</label>
+            <input type="email" id="contact-email" placeholder="customer@example.com">
           </div>
-        </div>
-        <div class="form-row form-row-half">
-          <div>
-            <label for="reference">Reference</label>
-            <input type="text" id="reference" placeholder="INV-001">
+        </section>
+
+        <section class="form-section">
+          <h2>Details</h2>
+          <div class="form-row form-row-half">
+            <div>
+              <label for="invoice-date" id="date-label">Invoice Date</label>
+              <input type="text" id="invoice-date" required placeholder="dd/mm/yyyy" pattern="\d{2}/\d{2}/\d{4}">
+            </div>
+            <div>
+              <label for="due-date" id="due-label">Due Date</label>
+              <input type="text" id="due-date" required placeholder="dd/mm/yyyy" pattern="\d{2}/\d{2}/\d{4}">
+            </div>
           </div>
-          <div>
-            <label for="currency">Currency</label>
-            <select id="currency"><option value="ZAR">ZAR - South African Rand</option></select>
+          <div class="form-row form-row-half">
+            <div>
+              <label for="reference">Reference</label>
+              <input type="text" id="reference" placeholder="INV-001">
+            </div>
+            <div>
+              <label for="currency">Currency</label>
+              <select id="currency"><option value="ZAR">ZAR - South African Rand</option></select>
+            </div>
           </div>
+        </section>
+
+        <section class="form-section">
+          <h2>Line Items</h2>
+          <table id="line-items">
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th>Qty</th>
+                <th>Unit Price</th>
+                <th>Amount</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+            </tbody>
+          </table>
+          <button type="button" id="add-line" class="btn btn-secondary">+ Add Line</button>
+        </section>
+
+        <section class="totals">
+          <div class="total-row">
+            <span>Subtotal</span>
+            <span id="subtotal">$0.00</span>
+          </div>
+          <div class="total-row total-final">
+            <span>Total</span>
+            <span id="total">$0.00</span>
+          </div>
+        </section>
+
+        <div id="authorise-row" class="form-check">
+          <label><input type="checkbox" id="authorise"> Authorise invoice (mark as approved)</label>
         </div>
-      </section>
 
-      <section class="form-section">
-        <h2>Line Items</h2>
-        <table id="line-items">
-          <thead>
-            <tr>
-              <th>Description</th>
-              <th>Qty</th>
-              <th>Unit Price</th>
-              <th>Amount</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-          </tbody>
-        </table>
-        <button type="button" id="add-line" class="btn btn-secondary">+ Add Line</button>
-      </section>
+        <button type="button" id="random-btn" class="btn btn-secondary" style="width:100%;margin-bottom:0.5rem;">Fill Random Test Data</button>
+        <button type="submit" id="submit-btn" class="btn btn-primary" disabled>Submit Draft Invoice to Xero</button>
+        <div id="status-msg" class="hidden"></div>
+        <button type="button" id="download-btn" class="btn btn-download hidden" style="width:100%;margin-top:0.5rem;">Download PDF</button>
+      </form>
+    </div>
 
-      <section class="totals">
-        <div class="total-row">
-          <span>Subtotal</span>
-          <span id="subtotal">$0.00</span>
-        </div>
-        <div class="total-row total-final">
-          <span>Total</span>
-          <span id="total">$0.00</span>
-        </div>
-      </section>
+    <!-- LIST PAGE -->
+    <div id="page-list" class="hidden">
+      <nav class="doc-tabs">
+        <button class="list-tab active" data-list="invoice">Invoices</button>
+        <button class="list-tab" data-list="quote">Quotes</button>
+        <button class="list-tab" data-list="po">Purchase Orders</button>
+      </nav>
 
-      <div id="authorise-row" class="form-check">
-        <label><input type="checkbox" id="authorise"> Authorise invoice (mark as approved)</label>
-      </div>
-
-      <button type="button" id="random-btn" class="btn btn-secondary" style="width:100%;margin-bottom:0.5rem;">Fill Random Test Data</button>
-      <button type="submit" id="submit-btn" class="btn btn-primary" disabled>Submit Draft Invoice to Xero</button>
-      <div id="status-msg" class="hidden"></div>
-      <button type="button" id="download-btn" class="btn btn-download hidden" style="width:100%;margin-top:0.5rem;">Download PDF</button>
-    </form>
+      <div id="list-loading" class="list-msg">Select a tab to load documents</div>
+      <table id="doc-list" class="doc-table hidden">
+        <thead>
+          <tr>
+            <th>Number</th>
+            <th>Contact</th>
+            <th>Date</th>
+            <th>Total</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </div>
 
-  <script src="app.js?v=4"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>

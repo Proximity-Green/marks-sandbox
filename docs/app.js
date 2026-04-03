@@ -1,5 +1,18 @@
 const API_URL = 'https://xero-invoice-worker.mark-442.workers.dev';
 
+// --- Page Switching ---
+
+document.querySelectorAll('.page-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelector('.page-tab.active').classList.remove('active');
+    tab.classList.add('active');
+    const page = tab.dataset.page;
+    document.getElementById('page-create').classList.toggle('hidden', page !== 'create');
+    document.getElementById('page-list').classList.toggle('hidden', page !== 'list');
+    if (page === 'list') loadDocList('invoice');
+  });
+});
+
 // --- Document Type ---
 
 let docType = 'invoice';
@@ -28,6 +41,81 @@ document.getElementById('authorise').addEventListener('change', (e) => {
   const btn = document.getElementById('submit-btn');
   btn.textContent = e.target.checked ? 'Submit & Authorise Invoice' : DOC_CONFIG[docType].submitLabel;
 });
+
+// --- Document List ---
+
+let listType = 'invoice';
+
+document.querySelectorAll('.list-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelector('.list-tab.active').classList.remove('active');
+    tab.classList.add('active');
+    loadDocList(tab.dataset.list);
+  });
+});
+
+async function loadDocList(type) {
+  listType = type;
+  const session = localStorage.getItem('xero_session');
+  if (!session) return;
+
+  const loading = document.getElementById('list-loading');
+  const table = document.getElementById('doc-list');
+  loading.textContent = 'Loading...';
+  loading.classList.remove('hidden');
+  table.classList.add('hidden');
+
+  try {
+    const res = await fetch(`${API_URL}/list?type=${type}`, {
+      headers: { Authorization: `Bearer ${session}` },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+
+    const tbody = table.querySelector('tbody');
+    tbody.innerHTML = '';
+
+    if (!data.items || data.items.length === 0) {
+      loading.textContent = 'No documents found';
+      return;
+    }
+
+    const xeroBase = 'https://go.xero.com';
+    const xeroUrls = {
+      invoice: id => `${xeroBase}/AccountsReceivable/View.aspx?InvoiceID=${id}`,
+      quote: id => `${xeroBase}/Quotes/View/${id}`,
+      po: id => `${xeroBase}/PurchaseOrders/View/${id}`,
+    };
+
+    data.items.forEach(item => {
+      const tr = document.createElement('tr');
+      const dateStr = item.date ? formatListDate(item.date) : '';
+      tr.innerHTML = `
+        <td>${item.number}</td>
+        <td>${item.contact}</td>
+        <td>${dateStr}</td>
+        <td>${item.currency} ${Number(item.total).toFixed(2)}</td>
+        <td><span class="status-badge status-${item.status}">${item.status}</span></td>
+        <td class="actions">
+          <button class="btn-sm btn-open" onclick="window.open('${xeroUrls[type](item.id)}','_blank')">Open</button>
+          <button class="btn-sm btn-dl" onclick="downloadPDF('${item.id}','${type}')">PDF</button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+    });
+
+    loading.classList.add('hidden');
+    table.classList.remove('hidden');
+  } catch (err) {
+    loading.textContent = 'Error: ' + err.message;
+  }
+}
+
+function formatListDate(dateStr) {
+  const d = new Date(dateStr);
+  if (isNaN(d)) return dateStr;
+  return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+}
 
 // --- Auth ---
 
@@ -109,7 +197,7 @@ function addLine(desc = '', qty = 1, price = 0) {
     <td><input type="text" class="line-desc" value="${desc}" placeholder="Description"></td>
     <td><input type="number" class="line-qty" value="${qty}" min="0" step="1"></td>
     <td><input type="number" class="line-price" value="${price}" min="0" step="0.01"></td>
-    <td class="line-amount">$0.00</td>
+    <td class="line-amount">ZAR 0.00</td>
     <td><button type="button" class="btn-remove">&times;</button></td>
   `;
   tbody.appendChild(tr);
@@ -131,18 +219,29 @@ document.getElementById('line-items').addEventListener('click', (e) => {
   }
 });
 
+function getCurrencySymbol() {
+  const sel = document.getElementById('currency');
+  return sel.value || 'ZAR';
+}
+
+function fmtAmount(val) {
+  return `${getCurrencySymbol()} ${val.toFixed(2)}`;
+}
+
 function updateTotals() {
   let subtotal = 0;
   document.querySelectorAll('#line-items tbody tr').forEach(tr => {
     const qty = parseFloat(tr.querySelector('.line-qty').value) || 0;
     const price = parseFloat(tr.querySelector('.line-price').value) || 0;
     const amount = qty * price;
-    tr.querySelector('.line-amount').textContent = `$${amount.toFixed(2)}`;
+    tr.querySelector('.line-amount').textContent = fmtAmount(amount);
     subtotal += amount;
   });
-  document.getElementById('subtotal').textContent = `$${subtotal.toFixed(2)}`;
-  document.getElementById('total').textContent = `$${subtotal.toFixed(2)}`;
+  document.getElementById('subtotal').textContent = fmtAmount(subtotal);
+  document.getElementById('total').textContent = fmtAmount(subtotal);
 }
+
+document.getElementById('currency').addEventListener('change', updateTotals);
 
 // --- Random Test Data ---
 
@@ -207,6 +306,7 @@ document.getElementById('invoice-form').addEventListener('submit', async (e) => 
   btn.disabled = true;
   btn.textContent = 'Submitting...';
   msg.classList.add('hidden');
+  document.getElementById('download-btn').classList.add('hidden');
 
   const lineItems = [];
   document.querySelectorAll('#line-items tbody tr').forEach(tr => {
@@ -265,6 +365,8 @@ document.getElementById('invoice-form').addEventListener('submit', async (e) => 
   btn.disabled = false;
   btn.textContent = DOC_CONFIG[docType].submitLabel;
 });
+
+// --- Download PDF ---
 
 async function downloadPDF(id, type) {
   const session = localStorage.getItem('xero_session');

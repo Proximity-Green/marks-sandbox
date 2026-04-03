@@ -247,3 +247,88 @@ td:nth-child(4) { text-align: right; font-weight: 500; color: #333; padding-top:
 }
 
 .hidden { display: none; }
+
+.page-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 1rem;
+}
+
+.page-tab {
+  padding: 0.5rem 1.5rem;
+  border: 1px solid #ddd;
+  background: #f5f5f5;
+  font-size: 0.9rem;
+  cursor: pointer;
+  color: #666;
+  font-weight: 500;
+}
+
+.page-tab:first-child { border-radius: 6px 0 0 6px; }
+.page-tab:last-child { border-radius: 0 6px 6px 0; }
+.page-tab.active { background: #0078c8; color: #fff; border-color: #0078c8; }
+
+.doc-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+.doc-table th {
+  text-align: left;
+  font-size: 0.8rem;
+  color: #999;
+  padding: 0.75rem 0.75rem;
+  border-bottom: 1px solid #eee;
+}
+
+.doc-table td {
+  padding: 0.6rem 0.75rem;
+  font-size: 0.9rem;
+  border-bottom: 1px solid #f5f5f5;
+}
+
+.doc-table tr:last-child td { border-bottom: none; }
+
+.doc-table .actions { white-space: nowrap; }
+
+.btn-sm {
+  padding: 0.25rem 0.6rem;
+  font-size: 0.78rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-right: 0.25rem;
+}
+
+.btn-open { background: #e8f0fe; color: #1a73e8; }
+.btn-open:hover { background: #d2e3fc; }
+.btn-dl { background: #e6f9ee; color: #1a7a3a; }
+.btn-dl:hover { background: #d0f0db; }
+
+.list-msg {
+  text-align: center;
+  padding: 2rem;
+  color: #999;
+  font-size: 0.95rem;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 3px;
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.status-DRAFT { background: #f0f0f0; color: #666; }
+.status-AUTHORISED { background: #e6f9ee; color: #1a7a3a; }
+.status-SENT { background: #e8f0fe; color: #1a73e8; }
+.status-PAID { background: #e6f9ee; color: #0d5e22; }
+.status-VOIDED { background: #fde8e8; color: #c53030; }
+.status-DELETED { background: #fde8e8; color: #c53030; }
+.status-ACCEPTED { background: #e6f9ee; color: #1a7a3a; }
+.status-DECLINED { background: #fde8e8; color: #c53030; }

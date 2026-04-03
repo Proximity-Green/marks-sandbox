@@ -176,6 +176,47 @@ export default {
       return jsonResponse({ currencies: result.Currencies || [] }, 200, env, request);
     }
 
+    // --- List Documents ---
+    if (url.pathname === '/list' && request.method === 'GET') {
+      const tokenData = await getTokenData(request, env);
+      if (!tokenData) return jsonResponse({ error: 'Not authenticated' }, 401, env, request);
+
+      const type = url.searchParams.get('type');
+      const endpoints = { invoice: 'Invoices', quote: 'Quotes', po: 'PurchaseOrders' };
+      const ep = endpoints[type];
+      if (!ep) return jsonResponse({ error: 'Invalid type' }, 400, env, request);
+
+      // Only get draft invoices, all quotes and POs
+      let where = '';
+      if (type === 'invoice') where = '?where=Status=="DRAFT"&order=Date DESC';
+      else if (type === 'quote') where = '?order=Date DESC';
+      else where = '?order=Date DESC';
+
+      const listRes = await fetch(`${XERO_API_URL}/${ep}${where}`, {
+        headers: {
+          Authorization: `Bearer ${tokenData.access_token}`,
+          'Xero-Tenant-Id': tokenData.tenant_id,
+        },
+      });
+
+      const result = await listRes.json();
+      if (!listRes.ok) {
+        return jsonResponse({ error: result.Message || 'Failed to list' }, listRes.status, env, request);
+      }
+
+      const items = (result[ep] || []).map(item => ({
+        id: item.InvoiceID || item.QuoteID || item.PurchaseOrderID,
+        number: item.InvoiceNumber || item.QuoteNumber || item.PurchaseOrderNumber || '',
+        contact: item.Contact?.Name || '',
+        date: item.DateString || item.Date || '',
+        total: item.Total || 0,
+        currency: item.CurrencyCode || '',
+        status: item.Status || '',
+      }));
+
+      return jsonResponse({ items }, 200, env, request);
+    }
+
     // --- Create Document (Invoice / Quote / PO) ---
     if (url.pathname === '/create' && request.method === 'POST') {
       const tokenData = await getTokenData(request, env);
