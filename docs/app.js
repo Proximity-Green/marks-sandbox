@@ -80,11 +80,11 @@ async function loadDocList(type) {
       return;
     }
 
-    const xeroBase = 'https://go.xero.com';
+    const xeroBase = 'https://go.xero.com/app/!T!rDp';
     const xeroUrls = {
-      invoice: id => `${xeroBase}/AccountsReceivable/View.aspx?InvoiceID=${id}`,
-      quote: id => `${xeroBase}/Quotes/View/${id}`,
-      po: id => `${xeroBase}/PurchaseOrders/View/${id}`,
+      invoice: id => `${xeroBase}/invoicing/view/${id}`,
+      quote: id => `${xeroBase}/quotes/view/${id}`,
+      po: id => `${xeroBase}/purchase-orders/edit/${id}`,
     };
 
     data.items.forEach(item => {
