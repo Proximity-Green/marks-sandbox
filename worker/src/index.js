@@ -26,7 +26,7 @@ async function supabaseRequest(env, path, { method = 'GET', body, headers = {}, 
     console.error(`Supabase ${method} ${path} failed:`, err);
     return null;
   }
-  if (method === 'GET' || (method === 'POST' && headers['Prefer'] !== 'return=minimal')) {
+  if (method === 'GET' || (method === 'POST' && !(headers['Prefer'] || '').includes('return=minimal'))) {
     return safeJson(res);
   }
   return true;
@@ -350,6 +350,84 @@ export default {
       }));
 
       return jsonResponse({ categories }, 200, env, request);
+    }
+
+    // --- Sync accounts & tracking to Supabase ---
+    if (url.pathname === '/admin/sync' && request.method === 'POST') {
+      const tokenData = await getTokenData(request, env);
+      if (!tokenData) return jsonResponse({ error: 'Not authenticated' }, 401, env, request);
+
+      const results = { accounts: 0, categories: 0, options: 0 };
+      const tenantId = tokenData.tenant_id;
+
+      // Sync accounts
+      const acctResult = await xeroFetch(`${XERO_API_URL}/Accounts?where=Status%3D%3D%22ACTIVE%22&order=Code`, {}, tokenData);
+      if (acctResult._ok && acctResult.Accounts) {
+        const rows = acctResult.Accounts
+          .filter(a => a.Code && a.Name)
+          .map(a => ({
+            tenant_id: tenantId,
+            source: 'xero',
+            code: String(a.Code),
+            name: String(a.Name),
+            type: a.Type ? String(a.Type) : null,
+            external_id: a.AccountID ? String(a.AccountID) : null,
+            synced_at: new Date().toISOString(),
+          }));
+        if (rows.length > 0) {
+          const sbUrl = `${SUPABASE_URL}/rest/v1/accounts?on_conflict=tenant_id,source,code`;
+          const sbRes = await fetch(sbUrl, {
+            method: 'POST',
+            headers: {
+              'apikey': env.SUPABASE_SERVICE_KEY,
+              'Authorization': `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+              'Content-Type': 'application/json',
+              'Prefer': 'return=minimal,resolution=merge-duplicates',
+            },
+            body: JSON.stringify(rows),
+          });
+          if (sbRes.ok) results.accounts = rows.length;
+        }
+      }
+
+      // Sync tracking categories + options
+      const trackResult = await xeroFetch(`${XERO_API_URL}/TrackingCategories`, {}, tokenData);
+      if (trackResult._ok && trackResult.TrackingCategories) {
+        for (const cat of trackResult.TrackingCategories) {
+          // Upsert category
+          const catRes = await supabaseRequest(env, 'tracking_categories', {
+            method: 'POST',
+            body: {
+              tenant_id: tenantId,
+              source: 'xero',
+              external_id: cat.TrackingCategoryID,
+              name: cat.Name,
+              synced_at: new Date().toISOString(),
+            },
+            headers: { 'Prefer': 'return=representation,resolution=merge-duplicates' },
+            query: 'on_conflict=tenant_id,source,external_id',
+          });
+          results.categories++;
+
+          if (catRes?.[0]?.id && cat.Options?.length > 0) {
+            const optRows = cat.Options.map(o => ({
+              category_id: catRes[0].id,
+              external_id: o.TrackingOptionID,
+              name: o.Name,
+              synced_at: new Date().toISOString(),
+            }));
+            await supabaseRequest(env, 'tracking_options', {
+              method: 'POST',
+              body: optRows,
+              headers: { 'Prefer': 'return=minimal,resolution=merge-duplicates' },
+              query: 'on_conflict=category_id,external_id',
+            });
+            results.options += optRows.length;
+          }
+        }
+      }
+
+      return jsonResponse({ synced: true, ...results, synced_at: new Date().toISOString() }, 200, env, request);
     }
 
     // --- List Documents ---

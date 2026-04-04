@@ -8,10 +8,12 @@
 		options = [],
 		value = $bindable(''),
 		placeholder = 'Select...',
+		onchange,
 	}: {
 		options: Option[];
 		value: string;
 		placeholder?: string;
+		onchange?: (value: string) => void;
 	} = $props();
 
 	let open = $state(false);
@@ -36,18 +38,23 @@
 		setTimeout(() => inputEl?.focus(), 0);
 	}
 
-	function handleSelect(opt: Option) {
-		value = opt.value;
+	function close() {
 		open = false;
 		search = '';
+	}
+
+	function handleSelect(opt: Option) {
+		value = opt.value;
+		onchange?.(opt.value);
+		close();
 	}
 
 	function handleClear(e: MouseEvent) {
 		e.stopPropagation();
 		e.preventDefault();
 		value = '';
-		open = false;
-		search = '';
+		onchange?.('');
+		close();
 	}
 
 	function handleKeydown(e: KeyboardEvent) {
@@ -61,22 +68,18 @@
 			e.preventDefault();
 			handleSelect(filtered[highlightIndex]);
 		} else if (e.key === 'Escape') {
-			open = false;
+			close();
 		}
-	}
-
-	function handleBlur(e: FocusEvent) {
-		// Close dropdown when focus leaves the entire component
-		const related = e.relatedTarget as HTMLElement | null;
-		const container = (e.currentTarget as HTMLElement);
-		if (related && container.contains(related)) return;
-		// Small delay to allow click on option to register
-		setTimeout(() => { open = false; search = ''; }, 150);
 	}
 </script>
 
-<!-- svelte-ignore a11y_no_static_element_interactions -->
-<div class="relative" onfocusout={handleBlur}>
+<div class="relative">
+	<!-- Invisible backdrop to catch outside clicks when open -->
+	{#if open}
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div class="fixed inset-0 z-40" onclick={close}></div>
+	{/if}
+
 	<!-- Trigger button -->
 	{#if !open}
 		<button
@@ -109,14 +112,16 @@
 		</button>
 	{:else}
 		<!-- Search input -->
-		<input
-			bind:this={inputEl}
-			type="text"
-			bind:value={search}
-			onkeydown={handleKeydown}
-			{placeholder}
-			class="w-full px-3 py-2 border border-brand-400 dark:border-brand-500 rounded-lg text-sm bg-white dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
-		/>
+		<div class="relative z-50">
+			<input
+				bind:this={inputEl}
+				type="text"
+				bind:value={search}
+				onkeydown={handleKeydown}
+				{placeholder}
+				class="w-full px-3 py-2 border border-brand-400 dark:border-brand-500 rounded-lg text-sm bg-white dark:bg-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+			/>
+		</div>
 	{/if}
 
 	<!-- Dropdown -->

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import '../app.css';
 	import { auth, initAuth, saveAuth } from '$lib/stores';
-	import { getAuthStatus } from '$lib/api';
+	import { getAuthStatus, syncRefData } from '$lib/api';
 	import { onMount } from 'svelte';
 	import { page } from '$app/stores';
 
@@ -53,6 +53,24 @@
 	let isAuthenticated = $derived($auth.authenticated);
 	let orgName = $derived($auth.org?.orgName ?? '');
 	let isLoading = $derived($auth.loading);
+	let syncing = $state(false);
+	let syncMessage = $state('');
+
+	async function handleSync() {
+		syncing = true;
+		syncMessage = '';
+		try {
+			const result = await syncRefData();
+			syncMessage = `Synced ${result.accounts} accounts, ${result.categories} categories, ${result.options} options`;
+			// Clear local cache so next load picks up fresh Supabase data
+			localStorage.removeItem('xero_accounts');
+			localStorage.removeItem('xero_tracking');
+		} catch (e: unknown) {
+			syncMessage = e instanceof Error ? e.message : 'Sync failed';
+		} finally {
+			syncing = false;
+		}
+	}
 </script>
 
 <div class="min-h-screen flex flex-col bg-gray-50 dark:bg-gray-950 transition-colors">
@@ -95,6 +113,24 @@
 							<div class="w-2 h-2 bg-green-500 rounded-full"></div>
 							<span>{orgName}</span>
 						</div>
+
+						<!-- Sync ref data -->
+						<button
+							onclick={handleSync}
+							disabled={syncing}
+							class="p-2 rounded-lg text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-800 transition-colors cursor-pointer disabled:opacity-50"
+							title="Sync accounts & tracking from Xero"
+						>
+							<svg class="w-5 h-5 {syncing ? 'animate-spin' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+							</svg>
+						</button>
+						{#if syncMessage}
+							<span class="text-xs text-green-600 dark:text-green-400 select-text cursor-text">{syncMessage}</span>
+							<button onclick={() => { syncMessage = ''; }} class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer p-0.5" title="Dismiss">
+								<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+							</button>
+						{/if}
 
 						<!-- Dark mode toggle -->
 						<button

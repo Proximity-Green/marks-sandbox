@@ -127,6 +127,18 @@
 		recalc();
 	}
 
+	function getTrackingLabels(tracking: Record<string, string>): string {
+		const labels: string[] = [];
+		for (const cat of trackingCategories) {
+			const optId = tracking[cat.id];
+			if (optId) {
+				const opt = cat.options.find(o => o.id === optId);
+				if (opt) labels.push(opt.name);
+			}
+		}
+		return labels.join(', ');
+	}
+
 	let docTypeLabel = $derived(
 		docType === 'invoice' ? 'Invoice' : docType === 'quote' ? 'Quote' : 'Purchase Order'
 	);
@@ -177,6 +189,41 @@
 		const newItems = [...lineItems];
 		[newItems[index], newItems[newIndex]] = [newItems[newIndex], newItems[index]];
 		lineItems = newItems;
+	}
+
+	// Drag and drop
+	function handleDragStart(e: DragEvent, index: number) {
+		dragIndex = index;
+		isDragging = true;
+		if (e.dataTransfer) {
+			e.dataTransfer.effectAllowed = 'move';
+			e.dataTransfer.setData('text/plain', String(index));
+		}
+	}
+
+	function handleDragOver(e: DragEvent, index: number) {
+		e.preventDefault();
+		if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+		dragOverIndex = index;
+	}
+
+	function handleDrop(e: DragEvent, index: number) {
+		e.preventDefault();
+		if (dragIndex !== null && dragIndex !== index) {
+			const newItems = [...lineItems];
+			const [moved] = newItems.splice(dragIndex, 1);
+			newItems.splice(index, 0, moved);
+			lineItems = newItems;
+		}
+		dragIndex = null;
+		dragOverIndex = null;
+		isDragging = false;
+	}
+
+	function handleDragEnd() {
+		dragIndex = null;
+		dragOverIndex = null;
+		isDragging = false;
 	}
 
 	async function handleSubmit() {
@@ -547,30 +594,57 @@
 
 					<div class="divide-y divide-gray-100 dark:divide-gray-800">
 						{#each lineItems as item, i (item.id)}
-							<div class="group">
+							<!-- svelte-ignore a11y_no_static_element_interactions -->
+							<div
+								class="group {dragOverIndex === i && dragIndex !== i ? 'border-t-2 border-brand-500' : ''} {dragIndex === i ? 'opacity-40' : ''}"
+								draggable="false"
+								ondragover={(e) => handleDragOver(e, i)}
+								ondrop={(e) => handleDrop(e, i)}
+							>
 								<!-- Summary row -->
 								<div class="flex items-center">
-									<!-- Sort buttons -->
-									<div class="flex flex-col shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-										<button type="button" onclick={() => moveLineItem(i, -1)} disabled={i === 0} class="px-1 py-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-20 cursor-pointer" title="Move up">
-											<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" /></svg>
-										</button>
-										<button type="button" onclick={() => moveLineItem(i, 1)} disabled={i === lineItems.length - 1} class="px-1 py-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-20 cursor-pointer" title="Move down">
-											<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
-										</button>
+									<!-- Drag handle + sort arrows -->
+									<div class="flex items-center shrink-0 pl-1">
+										<!-- Drag handle -->
+										<!-- svelte-ignore a11y_no_static_element_interactions -->
+										<div
+											draggable="true"
+											ondragstart={(e) => handleDragStart(e, i)}
+											ondragend={handleDragEnd}
+											class="px-1 py-2 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 dark:hover:text-gray-400 touch-none"
+											title="Drag to reorder"
+										>
+											<svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+												<circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/>
+												<circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
+												<circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/>
+											</svg>
+										</div>
+										<!-- Sort arrows -->
+										<div class="flex flex-col shrink-0 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity">
+											<button type="button" onclick={(e) => { e.stopPropagation(); moveLineItem(i, -1); }} disabled={i === 0} class="px-1 py-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-20 cursor-pointer" title="Move up">
+												<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" /></svg>
+											</button>
+											<button type="button" onclick={(e) => { e.stopPropagation(); moveLineItem(i, 1); }} disabled={i === lineItems.length - 1} class="px-1 py-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-20 cursor-pointer" title="Move down">
+												<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
+											</button>
+										</div>
 									</div>
 									<button
 										type="button"
-										class="flex-1 flex items-center gap-3 px-3 py-3 text-left hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer {expandedLine === item.id ? 'bg-brand-50/50 dark:bg-brand-900/10' : ''}"
+										class="flex-1 min-w-0 flex items-center gap-3 px-3 py-3 text-left hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer {expandedLine === item.id ? 'bg-brand-50/50 dark:bg-brand-900/10' : ''}"
 										onclick={() => { expandedLine = expandedLine === item.id ? null : item.id; }}
 									>
 										<span class="text-xs text-gray-400 w-5 shrink-0">{i + 1}</span>
 										<svg class="w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform {expandedLine === item.id ? 'rotate-90' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
 											<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
 										</svg>
-										<span class="flex-1 text-sm text-gray-900 dark:text-white truncate">{item.description || 'Untitled item'}</span>
+										<span class="flex-1 text-sm text-gray-900 dark:text-white break-words whitespace-normal">{item.description || 'Untitled item'}</span>
 										{#if item.accountCode}
 											<span class="text-xs text-gray-400 shrink-0">{item.accountCode}</span>
+										{/if}
+										{#if getTrackingLabels(item.tracking || {})}
+											<span class="text-xs text-brand-500 dark:text-brand-400 shrink-0">{getTrackingLabels(item.tracking || {})}</span>
 										{/if}
 										<span class="text-sm text-gray-500 dark:text-gray-400 tabular-nums w-12 text-right shrink-0">{item.quantity}</span>
 										<span class="text-sm text-gray-500 dark:text-gray-400 tabular-nums w-20 text-right shrink-0">{fmt(Number(item.unitPrice))}</span>
@@ -578,9 +652,9 @@
 									</button>
 									<button
 										type="button"
-										onclick={() => removeLineItem(i)}
+										onclick={(e) => { e.stopPropagation(); removeLineItem(i); }}
 										disabled={lineItems.length <= 1}
-										class="px-2 shrink-0 text-gray-300 hover:text-red-500 disabled:opacity-20 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+										class="px-2 shrink-0 text-gray-300 hover:text-red-500 disabled:opacity-20 opacity-0 group-hover:opacity-100 pointer-events-none group-hover:pointer-events-auto transition-opacity cursor-pointer"
 										title="Remove"
 									>
 										<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -614,7 +688,8 @@
 												<div>
 													<label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{cat.name}</label>
 													<SearchSelect
-														bind:value={item.tracking[cat.id]}
+														value={item.tracking[cat.id] ?? ''}
+														onchange={(v) => { item.tracking[cat.id] = v; item.tracking = { ...item.tracking }; }}
 														options={cat.options.map(o => ({ value: o.id, label: o.name }))}
 														placeholder="Search {cat.name.toLowerCase()}..."
 													/>

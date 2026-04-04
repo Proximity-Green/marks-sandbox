@@ -64,21 +64,107 @@ export async function getAuthStatus(): Promise<{
 	return request('/auth/status');
 }
 
-// Currencies
+// --- Supabase direct reads (no auth needed) ---
+const SUPABASE_URL = 'https://lcigjfeyldhfoihsyvwn.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxjaWdqZmV5bGRoZm9paHN5dnduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUyMTI2NDgsImV4cCI6MjA5MDc4ODY0OH0.ef9_p8BmNyFf5h1dOa2_HZMzuKMC6br0yYK8HG9z7Rk';
+
+async function supabaseGet<T>(path: string): Promise<T | null> {
+	try {
+		const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+			headers: { 'apikey': SUPABASE_ANON_KEY, 'Authorization': `Bearer ${SUPABASE_ANON_KEY}` }
+		});
+		if (!res.ok) return null;
+		return res.json();
+	} catch { return null; }
+}
+
+// --- Local cache with TTL ---
+const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+
+interface CacheEntry<T> {
+	data: T;
+	ts: number;
+}
+
+function getCached<T>(key: string): T | null {
+	try {
+		const raw = localStorage.getItem(key);
+		if (!raw) return null;
+		const entry: CacheEntry<T> = JSON.parse(raw);
+		if (Date.now() - entry.ts < CACHE_TTL) return entry.data;
+	} catch { /* ignore */ }
+	return null;
+}
+
+function setCache<T>(key: string, data: T): void {
+	try {
+		const entry: CacheEntry<T> = { data, ts: Date.now() };
+		localStorage.setItem(key, JSON.stringify(entry));
+	} catch { /* ignore quota errors */ }
+}
+
+// Currencies (still from Xero — not stored in Supabase)
 export async function getCurrencies(): Promise<{ currencies: Array<{ code: string; description: string }> }> {
-	return request('/currencies');
+	const cached = getCached<{ currencies: Array<{ code: string; description: string }> }>('xero_currencies');
+	if (cached) return cached;
+	const data = await request<{ currencies: Array<{ code: string; description: string }> }>('/currencies');
+	setCache('xero_currencies', data);
+	return data;
 }
 
-// Chart of Accounts
+// Chart of Accounts — Supabase first, Xero fallback
 export async function getAccounts(): Promise<{ accounts: Array<{ code: string; name: string; type: string }> }> {
-	return request('/accounts');
+	const cached = getCached<{ accounts: Array<{ code: string; name: string; type: string }> }>('xero_accounts');
+	if (cached) return cached;
+
+	// Try Supabase
+	const rows = await supabaseGet<Array<{ code: string; name: string; type: string }>>('accounts?select=code,name,type&order=code');
+	if (rows && rows.length > 0) {
+		const data = { accounts: rows };
+		setCache('xero_accounts', data);
+		return data;
+	}
+
+	// Fallback to Xero API
+	const data = await request<{ accounts: Array<{ code: string; name: string; type: string }> }>('/accounts');
+	setCache('xero_accounts', data);
+	return data;
 }
 
-// Tracking categories
+// Tracking categories — Supabase first, Xero fallback
 export async function getTracking(): Promise<{
 	categories: Array<{ id: string; name: string; options: Array<{ id: string; name: string }> }>;
 }> {
-	return request('/tracking');
+	const cached = getCached<{ categories: Array<{ id: string; name: string; options: Array<{ id: string; name: string }> }> }>('xero_tracking');
+	if (cached) return cached;
+
+	// Try Supabase — fetch categories with nested options
+	const cats = await supabaseGet<Array<{
+		id: string; external_id: string; name: string;
+		tracking_options: Array<{ external_id: string; name: string }>;
+	}>>('tracking_categories?select=id,external_id,name,tracking_options(external_id,name)');
+
+	if (cats && cats.length > 0) {
+		const data = {
+			categories: cats.map(c => ({
+				id: c.external_id,
+				name: c.name,
+				options: (c.tracking_options || []).map(o => ({ id: o.external_id, name: o.name })),
+			}))
+		};
+		setCache('xero_tracking', data);
+		return data;
+	}
+
+	// Fallback to Xero API
+	const data = await request<{ categories: Array<{ id: string; name: string; options: Array<{ id: string; name: string }> }> }>('/tracking');
+	setCache('xero_tracking', data);
+	return data;
+}
+
+// Sync accounts & tracking from Xero to Supabase
+export async function syncRefData(): Promise<{ synced: boolean; accounts: number; categories: number; options: number; synced_at: string }> {
+	return request('/admin/sync', { method: 'POST' });
 }
 
 // List documents
