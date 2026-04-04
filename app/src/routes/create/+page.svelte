@@ -25,16 +25,15 @@
 		id: number;
 		description: string;
 		accountCode: string;
-		trackingCategoryId: string;
-		trackingOptionId: string;
+		tracking: Record<string, string>; // categoryId -> optionId
 		quantity: number;
 		unitPrice: number;
 	}
 
 	interface TrackingCategory {
-		trackingCategoryID: string;
+		id: string;
 		name: string;
-		options: Array<{ trackingOptionID: string; name: string }>;
+		options: Array<{ id: string; name: string }>;
 	}
 
 	// State
@@ -51,7 +50,7 @@
 	let nextId = $state(2);
 
 	let lineItems: LineItem[] = $state([
-		{ id: 1, description: '', accountCode: '2000', trackingCategoryId: '', trackingOptionId: '', quantity: 1, unitPrice: 0 }
+		{ id: 1, description: '', accountCode: '2000', tracking: {}, quantity: 1, unitPrice: 0 }
 	]);
 
 	let submitting = $state(false);
@@ -110,7 +109,14 @@
 			usedItems.add(desc);
 			const revenueAccounts = accounts.filter(a => a.type === 'REVENUE');
 			const defaultCode = revenueAccounts.length > 0 ? randomPick(revenueAccounts).code : (accounts.length > 0 ? accounts[0].code : '2000');
-			newLines.push({ id: nextId++, description: desc, accountCode: defaultCode, trackingCategoryId: '', trackingOptionId: '', quantity: randomInt(1, 10), unitPrice: randomInt(50, 500) });
+			// Randomly assign tracking options
+			const tracking: Record<string, string> = {};
+			for (const cat of trackingCategories) {
+				if (cat.options.length > 0 && Math.random() > 0.3) {
+					tracking[cat.id] = randomPick(cat.options).id;
+				}
+			}
+			newLines.push({ id: nextId++, description: desc, accountCode: defaultCode, tracking, quantity: randomInt(1, 10), unitPrice: randomInt(50, 500) });
 		}
 		lineItems = newLines;
 		recalc();
@@ -134,7 +140,7 @@
 
 		// Load form data independently so one failure doesn't block others
 		getCurrencies().then(r => currencies = r.currencies || []).catch(e => console.error('Failed to load currencies:', e));
-		getTracking().then(r => trackingCategories = r.tracking || []).catch(e => console.error('Failed to load tracking:', e));
+		getTracking().then(r => trackingCategories = r.categories || []).catch(e => console.error('Failed to load tracking:', e));
 		getAccounts().then(r => accounts = r.accounts || []).catch(e => console.error('Failed to load accounts:', e));
 
 		return unsub;
@@ -145,8 +151,7 @@
 			id: nextId++,
 			description: '',
 			accountCode: '',
-			trackingCategoryId: '',
-			trackingOptionId: '',
+			tracking: {},
 			quantity: 1,
 			unitPrice: 0
 		}];
@@ -197,8 +202,9 @@
 						accountCode: li.accountCode.trim() || undefined
 					};
 
-					if (li.trackingCategoryId && li.trackingOptionId) {
-						item.tracking = [{ categoryId: li.trackingCategoryId, optionId: li.trackingOptionId }];
+					const trackingEntries = Object.entries(li.tracking || {}).filter(([, optId]) => optId);
+					if (trackingEntries.length > 0) {
+						item.tracking = trackingEntries.map(([catId, optId]) => ({ categoryId: catId, optionId: optId }));
 					}
 
 					return item;
@@ -323,7 +329,7 @@
 		contactName = '';
 		contactEmail = '';
 		reference = '';
-		lineItems = [{ id: nextId++, description: '', accountCode: '', tracking: {}, quantity: 1, unitPrice: 0 }];
+		lineItems = [{ id: nextId++, description: '', accountCode: '2000', tracking: {}, quantity: 1, unitPrice: 0 }];
 		submitError = '';
 		actionMessage = '';
 	}
@@ -537,7 +543,7 @@
 								<tr class="text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
 									<th class="px-4 py-3 w-10">#</th>
 									<th class="px-4 py-3">Description</th>
-									<th class="px-4 py-3 w-24">Account</th>
+									<th class="px-4 py-3 w-40">Account</th>
 									{#each trackingCategories as cat}
 										<th class="px-4 py-3 w-32">{cat.name}</th>
 									{/each}
@@ -560,22 +566,25 @@
 											/>
 										</td>
 										<td class="px-4 py-2">
-											<input
-												type="text"
+											<select
 												bind:value={item.accountCode}
-												placeholder="Code"
-												class="w-full px-2 py-1.5 border border-transparent hover:border-gray-200 dark:hover:border-gray-600 focus:border-brand-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-brand-500 placeholder:text-gray-300 dark:bg-transparent dark:text-white"
-											/>
+												class="w-full px-2 py-1.5 border border-transparent hover:border-gray-200 dark:hover:border-gray-600 focus:border-brand-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-brand-500 bg-transparent dark:bg-transparent dark:text-white"
+											>
+												<option value="">--</option>
+												{#each accounts as acc}
+													<option value={acc.code}>{acc.code} - {acc.name}</option>
+												{/each}
+											</select>
 										</td>
 										{#each trackingCategories as cat}
 											<td class="px-4 py-2">
 												<select
-													bind:value={item.tracking[cat.name]}
-													class="w-full px-2 py-1.5 border border-transparent hover:border-gray-200 focus:border-brand-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-brand-500 bg-transparent"
+													bind:value={item.tracking[cat.id]}
+													class="w-full px-2 py-1.5 border border-transparent hover:border-gray-200 dark:hover:border-gray-600 focus:border-brand-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-brand-500 bg-transparent dark:bg-transparent dark:text-white"
 												>
 													<option value="">--</option>
 													{#each cat.options as opt}
-														<option value={opt.name}>{opt.name}</option>
+														<option value={opt.id}>{opt.name}</option>
 													{/each}
 												</select>
 											</td>
@@ -655,17 +664,17 @@
 									</td>
 								</tr>
 								<tr class="border-t border-gray-200 dark:border-gray-700">
-									<td colspan="5" class="px-4 py-2 text-right text-gray-500 dark:text-gray-400 text-sm">Subtotal</td>
+									<td colspan={5 + trackingCategories.length} class="px-4 py-2 text-right text-gray-500 dark:text-gray-400 text-sm">Subtotal</td>
 									<td class="px-4 py-2 text-right text-gray-700 dark:text-gray-300 text-sm tabular-nums whitespace-nowrap">{currency} {fmt(subtotal)}</td>
 									<td></td>
 								</tr>
 								<tr>
-									<td colspan="5" class="px-4 py-2 text-right text-gray-500 dark:text-gray-400 text-sm">Tax (15%)</td>
+									<td colspan={5 + trackingCategories.length} class="px-4 py-2 text-right text-gray-500 dark:text-gray-400 text-sm">Tax (15%)</td>
 									<td class="px-4 py-2 text-right text-gray-700 dark:text-gray-300 text-sm tabular-nums whitespace-nowrap">{currency} {fmt(tax)}</td>
 									<td></td>
 								</tr>
 								<tr class="border-t border-gray-200 dark:border-gray-700">
-									<td colspan="5" class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white text-base">Total</td>
+									<td colspan={5 + trackingCategories.length} class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white text-base">Total</td>
 									<td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white text-base tabular-nums whitespace-nowrap">{currency} {fmt(total)}</td>
 									<td></td>
 								</tr>

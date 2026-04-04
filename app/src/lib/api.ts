@@ -76,7 +76,7 @@ export async function getAccounts(): Promise<{ accounts: Array<{ code: string; n
 
 // Tracking categories
 export async function getTracking(): Promise<{
-	tracking: Array<{ trackingCategoryID: string; name: string; options: Array<{ trackingOptionID: string; name: string }> }>;
+	categories: Array<{ id: string; name: string; options: Array<{ id: string; name: string }> }>;
 }> {
 	return request('/tracking');
 }

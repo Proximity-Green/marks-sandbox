@@ -4,6 +4,76 @@ const XERO_API_URL = 'https://api.xero.com/api.xro/2.0';
 const XERO_CONNECTIONS_URL = 'https://api.xero.com/connections';
 const SCOPES = 'openid profile email accounting.invoices accounting.contacts accounting.settings';
 
+const SUPABASE_URL = 'https://lcigjfeyldhfoihsyvwn.supabase.co';
+
+// Supabase REST API helper — uses service role key for full access
+async function supabaseRequest(env, path, { method = 'GET', body, headers = {}, query = '' } = {}) {
+  if (!env.SUPABASE_SERVICE_KEY) return null; // gracefully skip if not configured
+  const url = `${SUPABASE_URL}/rest/v1/${path}${query ? '?' + query : ''}`;
+  const res = await fetch(url, {
+    method,
+    headers: {
+      'apikey': env.SUPABASE_SERVICE_KEY,
+      'Authorization': `Bearer ${env.SUPABASE_SERVICE_KEY}`,
+      'Content-Type': 'application/json',
+      'Prefer': method === 'POST' ? 'return=representation' : 'return=minimal',
+      ...headers,
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if (!res.ok) {
+    const err = await res.text();
+    console.error(`Supabase ${method} ${path} failed:`, err);
+    return null;
+  }
+  if (method === 'GET' || (method === 'POST' && headers['Prefer'] !== 'return=minimal')) {
+    return safeJson(res);
+  }
+  return true;
+}
+
+// Upsert xero_connections row
+async function upsertConnection(env, tenantId, tenantName, shortCode) {
+  return supabaseRequest(env, 'xero_connections', {
+    method: 'POST',
+    body: { tenant_id: tenantId, tenant_name: tenantName, short_code: shortCode },
+    headers: { 'Prefer': 'return=representation,resolution=merge-duplicates' },
+  });
+}
+
+// Upsert contact and return the Supabase contact id
+async function upsertContact(env, tenantId, xeroContactId, name, email) {
+  const result = await supabaseRequest(env, 'contacts', {
+    method: 'POST',
+    body: {
+      tenant_id: tenantId,
+      xero_contact_id: xeroContactId || null,
+      name,
+      email: email || null,
+    },
+    headers: { 'Prefer': 'return=representation,resolution=merge-duplicates' },
+    query: 'on_conflict=xero_contact_id',
+  });
+  return result?.[0]?.id || null;
+}
+
+// Insert document and return the row
+async function insertDocument(env, doc) {
+  const result = await supabaseRequest(env, 'documents', {
+    method: 'POST',
+    body: doc,
+  });
+  return result?.[0] || null;
+}
+
+// Insert line items
+async function insertLineItems(env, items) {
+  return supabaseRequest(env, 'line_items', {
+    method: 'POST',
+    body: items,
+  });
+}
+
 function corsHeaders(env, request) {
   const origin = request?.headers?.get('Origin') || '*';
   return {
@@ -193,6 +263,9 @@ export default {
         short_code: shortCode,
         org_name: orgName,
       }), { expirationTtl: 86400 });
+
+      // Save connection to Supabase (best effort)
+      await upsertConnection(env, tenantId, orgName, shortCode);
 
       return new Response(null, {
         status: 302,
@@ -451,10 +524,72 @@ export default {
       const items = result[endpoint] || [];
       const created = items[0];
       const idField = { Invoices: 'InvoiceID', Quotes: 'QuoteID', PurchaseOrders: 'PurchaseOrderID' }[endpoint];
+      const xeroId = created?.[idField] || '';
+      const docNumber = created?.[numberField] || created?.InvoiceNumber || '';
+
+      // --- Save to Supabase (best effort — don't fail the response if this errors) ---
+      try {
+        // Ensure connection exists
+        await upsertConnection(env, tokenData.tenant_id, tokenData.org_name, tokenData.short_code);
+
+        // Get or extract Xero contact ID from the created document
+        const xeroContactId = created?.Contact?.ContactID || contactRef?.ContactID || null;
+
+        // Upsert contact
+        const contactDbId = await upsertContact(
+          env,
+          tokenData.tenant_id,
+          xeroContactId,
+          body.contact.name,
+          body.contact.email
+        );
+
+        // Calculate totals from line items
+        const subtotal = body.lineItems.reduce((sum, li) => sum + (li.quantity * li.unitAmount), 0);
+        const total = created?.Total || subtotal;
+
+        // Insert document
+        const savedDoc = await insertDocument(env, {
+          xero_id: xeroId,
+          tenant_id: tokenData.tenant_id,
+          doc_type: docType,
+          doc_number: docNumber,
+          contact_id: contactDbId,
+          contact_name: body.contact.name,
+          contact_email: body.contact.email || null,
+          date: body.date,
+          due_date: body.dueDate || null,
+          reference: body.reference || null,
+          currency_code: body.currencyCode || 'ZAR',
+          subtotal: created?.SubTotal || subtotal,
+          total,
+          status: 'DRAFT',
+          xero_status: created?.Status || 'DRAFT',
+        });
+
+        // Insert line items
+        if (savedDoc?.id) {
+          const lineItemRows = body.lineItems.map((li, idx) => ({
+            document_id: savedDoc.id,
+            sort_order: idx,
+            description: li.description,
+            account_code: li.accountCode || null,
+            tracking_category_id: li.tracking?.[0]?.categoryId || null,
+            tracking_option_id: li.tracking?.[0]?.optionId || null,
+            quantity: li.quantity,
+            unit_amount: li.unitAmount,
+            line_amount: li.quantity * li.unitAmount,
+          }));
+          await insertLineItems(env, lineItemRows);
+        }
+      } catch (e) {
+        console.error('Supabase save failed (non-blocking):', e.message);
+      }
+
       return jsonResponse({
         success: true,
-        id: created?.[idField] || '',
-        number: created?.[numberField] || created?.InvoiceNumber || '',
+        id: xeroId,
+        number: docNumber,
         docType: body.docType,
       }, 200, env, request);
     }
