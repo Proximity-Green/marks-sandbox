@@ -11,6 +11,7 @@
 		sendEmail,
 		sendCustomEmail
 	} from '$lib/api';
+	import SearchSelect from '$lib/SearchSelect.svelte';
 
 	// Types
 	type DocType = 'invoice' | 'quote' | 'purchaseorder';
@@ -61,6 +62,10 @@
 	let actionMessage = $state('');
 
 	// Email modal
+	let expandedLine: number | null = $state(null);
+	let dragIndex: number | null = $state(null);
+	let dragOverIndex: number | null = $state(null);
+	let isDragging = $state(false);
 	let showEmailModal = $state(false);
 	let emailTo = $state('');
 	let emailSubject = $state('');
@@ -147,14 +152,16 @@
 	});
 
 	function addLineItem() {
+		const newId = nextId++;
 		lineItems = [...lineItems, {
-			id: nextId++,
+			id: newId,
 			description: '',
 			accountCode: '',
 			tracking: {},
 			quantity: 1,
 			unitPrice: 0
 		}];
+		expandedLine = newId;
 	}
 
 	function removeLineItem(index: number) {
@@ -527,6 +534,7 @@
 					<div class="px-5 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
 						<h3 class="text-sm font-semibold text-gray-900 dark:text-white uppercase tracking-wide">Line Items</h3>
 						<button
+							type="button"
 							onclick={addLineItem}
 							class="flex items-center gap-1.5 text-sm font-medium text-brand-600 hover:text-brand-700 cursor-pointer"
 						>
@@ -537,149 +545,143 @@
 						</button>
 					</div>
 
-					<div class="overflow-x-auto">
-						<table class="w-full text-sm">
-							<thead>
-								<tr class="text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-									<th class="px-4 py-3 w-10">#</th>
-									<th class="px-4 py-3">Description</th>
-									<th class="px-4 py-3 w-40">Account</th>
-									{#each trackingCategories as cat}
-										<th class="px-4 py-3 w-32">{cat.name}</th>
-									{/each}
-									<th class="px-4 py-3 w-20 text-right">Qty</th>
-									<th class="px-4 py-3 w-36 text-right">Unit Price</th>
-									<th class="px-4 py-3 w-40 text-right">Amount</th>
-									<th class="px-4 py-3 w-16"></th>
-								</tr>
-							</thead>
-							<tbody class="divide-y divide-gray-50 dark:divide-gray-800">
-								{#each lineItems as item, i (item.id)}
-									<tr class="group hover:bg-gray-50/50 dark:hover:bg-gray-800/50">
-										<td class="px-4 py-2 text-gray-400 text-xs">{i + 1}</td>
-										<td class="px-4 py-2">
-											<input
-												type="text"
-												bind:value={item.description}
-												placeholder="Item description"
-												class="w-full px-2 py-1.5 border border-transparent hover:border-gray-200 dark:hover:border-gray-600 focus:border-brand-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-brand-500 placeholder:text-gray-300 dark:bg-transparent dark:text-white"
-											/>
-										</td>
-										<td class="px-4 py-2">
-											<select
-												bind:value={item.accountCode}
-												class="w-full px-2 py-1.5 border border-transparent hover:border-gray-200 dark:hover:border-gray-600 focus:border-brand-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-brand-500 bg-transparent dark:bg-transparent dark:text-white"
-											>
-												<option value="">--</option>
-												{#each accounts as acc}
-													<option value={acc.code}>{acc.code} - {acc.name}</option>
-												{/each}
-											</select>
-										</td>
-										{#each trackingCategories as cat}
-											<td class="px-4 py-2">
-												<select
-													bind:value={item.tracking[cat.id]}
-													class="w-full px-2 py-1.5 border border-transparent hover:border-gray-200 dark:hover:border-gray-600 focus:border-brand-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-brand-500 bg-transparent dark:bg-transparent dark:text-white"
-												>
-													<option value="">--</option>
-													{#each cat.options as opt}
-														<option value={opt.id}>{opt.name}</option>
-													{/each}
-												</select>
-											</td>
-										{/each}
-										<td class="px-4 py-2">
-											<input
-												type="number"
-												bind:value={item.quantity}
-												oninput={recalc}
-												min="0"
-												step="1"
-												class="w-full px-2 py-1.5 border border-transparent hover:border-gray-200 dark:hover:border-gray-600 focus:border-brand-300 rounded text-sm text-right focus:outline-none focus:ring-1 focus:ring-brand-500 dark:bg-transparent dark:text-white"
-											/>
-										</td>
-										<td class="px-4 py-2">
-											<input
-												type="number"
-												bind:value={item.unitPrice}
-												oninput={recalc}
-												min="0"
-												step="0.01"
-												class="w-full px-2 py-1.5 border border-transparent hover:border-gray-200 dark:hover:border-gray-600 focus:border-brand-300 rounded text-sm text-right focus:outline-none focus:ring-1 focus:ring-brand-500 dark:bg-transparent dark:text-white"
-											/>
-										</td>
-										<td class="px-4 py-2 text-right font-medium text-gray-700 dark:text-gray-300 tabular-nums whitespace-nowrap">
-											{fmt(Number(item.quantity) * Number(item.unitPrice))}
-										</td>
-										<td class="px-4 py-2">
-											<div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-												<button
-													onclick={() => moveLineItem(i, -1)}
-													disabled={i === 0}
-													class="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 cursor-pointer"
-													title="Move up"
-												>
-													<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-														<path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" />
-													</svg>
-												</button>
-												<button
-													onclick={() => moveLineItem(i, 1)}
-													disabled={i === lineItems.length - 1}
-													class="p-1 text-gray-400 hover:text-gray-600 disabled:opacity-30 cursor-pointer"
-													title="Move down"
-												>
-													<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-														<path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-													</svg>
-												</button>
-												<button
-													onclick={() => removeLineItem(i)}
-													disabled={lineItems.length <= 1}
-													class="p-1 text-gray-400 hover:text-red-500 disabled:opacity-30 cursor-pointer"
-													title="Remove"
-												>
-													<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-														<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-													</svg>
-												</button>
-											</div>
-										</td>
-									</tr>
-								{/each}
-							</tbody>
-							<tfoot>
-								<tr class="border-t border-gray-100 dark:border-gray-800">
-									<td class="px-4 py-3" colspan="2">
-										<button
-											onclick={addLineItem}
-											class="flex items-center gap-1.5 text-sm text-gray-500 hover:text-brand-600 cursor-pointer"
-										>
-											<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-												<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-											</svg>
-											Add another line item
+					<div class="divide-y divide-gray-100 dark:divide-gray-800">
+						{#each lineItems as item, i (item.id)}
+							<div class="group">
+								<!-- Summary row -->
+								<div class="flex items-center">
+									<!-- Sort buttons -->
+									<div class="flex flex-col shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+										<button type="button" onclick={() => moveLineItem(i, -1)} disabled={i === 0} class="px-1 py-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-20 cursor-pointer" title="Move up">
+											<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" /></svg>
 										</button>
-									</td>
-								</tr>
-								<tr class="border-t border-gray-200 dark:border-gray-700">
-									<td colspan={5 + trackingCategories.length} class="px-4 py-2 text-right text-gray-500 dark:text-gray-400 text-sm">Subtotal</td>
-									<td class="px-4 py-2 text-right text-gray-700 dark:text-gray-300 text-sm tabular-nums whitespace-nowrap">{currency} {fmt(subtotal)}</td>
-									<td></td>
-								</tr>
-								<tr>
-									<td colspan={5 + trackingCategories.length} class="px-4 py-2 text-right text-gray-500 dark:text-gray-400 text-sm">Tax (15%)</td>
-									<td class="px-4 py-2 text-right text-gray-700 dark:text-gray-300 text-sm tabular-nums whitespace-nowrap">{currency} {fmt(tax)}</td>
-									<td></td>
-								</tr>
-								<tr class="border-t border-gray-200 dark:border-gray-700">
-									<td colspan={5 + trackingCategories.length} class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white text-base">Total</td>
-									<td class="px-4 py-3 text-right font-semibold text-gray-900 dark:text-white text-base tabular-nums whitespace-nowrap">{currency} {fmt(total)}</td>
-									<td></td>
-								</tr>
-							</tfoot>
-						</table>
+										<button type="button" onclick={() => moveLineItem(i, 1)} disabled={i === lineItems.length - 1} class="px-1 py-0.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 disabled:opacity-20 cursor-pointer" title="Move down">
+											<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
+										</button>
+									</div>
+									<button
+										type="button"
+										class="flex-1 flex items-center gap-3 px-3 py-3 text-left hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer {expandedLine === item.id ? 'bg-brand-50/50 dark:bg-brand-900/10' : ''}"
+										onclick={() => { expandedLine = expandedLine === item.id ? null : item.id; }}
+									>
+										<span class="text-xs text-gray-400 w-5 shrink-0">{i + 1}</span>
+										<svg class="w-3.5 h-3.5 text-gray-400 shrink-0 transition-transform {expandedLine === item.id ? 'rotate-90' : ''}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+											<path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+										</svg>
+										<span class="flex-1 text-sm text-gray-900 dark:text-white truncate">{item.description || 'Untitled item'}</span>
+										{#if item.accountCode}
+											<span class="text-xs text-gray-400 shrink-0">{item.accountCode}</span>
+										{/if}
+										<span class="text-sm text-gray-500 dark:text-gray-400 tabular-nums w-12 text-right shrink-0">{item.quantity}</span>
+										<span class="text-sm text-gray-500 dark:text-gray-400 tabular-nums w-20 text-right shrink-0">{fmt(Number(item.unitPrice))}</span>
+										<span class="text-sm font-medium text-gray-700 dark:text-gray-300 tabular-nums w-24 text-right shrink-0">{fmt(Number(item.quantity) * Number(item.unitPrice))}</span>
+									</button>
+									<button
+										type="button"
+										onclick={() => removeLineItem(i)}
+										disabled={lineItems.length <= 1}
+										class="px-2 shrink-0 text-gray-300 hover:text-red-500 disabled:opacity-20 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+										title="Remove"
+									>
+										<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+											<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+										</svg>
+									</button>
+								</div>
+
+								<!-- Expanded detail panel -->
+								{#if expandedLine === item.id}
+									<div class="px-5 py-4 bg-gray-50/80 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-700">
+										<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
+											<div class="sm:col-span-2">
+												<label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Description</label>
+												<input
+													type="text"
+													bind:value={item.description}
+													placeholder="Item description"
+													class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent placeholder:text-gray-400"
+												/>
+											</div>
+											<div>
+												<label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Account</label>
+												<SearchSelect
+													bind:value={item.accountCode}
+													options={accounts.map(a => ({ value: a.code, label: `${a.code} - ${a.name}` }))}
+													placeholder="Search accounts..."
+												/>
+											</div>
+											{#each trackingCategories as cat}
+												<div>
+													<label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{cat.name}</label>
+													<SearchSelect
+														bind:value={item.tracking[cat.id]}
+														options={cat.options.map(o => ({ value: o.id, label: o.name }))}
+														placeholder="Search {cat.name.toLowerCase()}..."
+													/>
+												</div>
+											{/each}
+											<div>
+												<label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Quantity</label>
+												<input
+													type="number"
+													bind:value={item.quantity}
+													oninput={recalc}
+													min="0"
+													step="1"
+													class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+												/>
+											</div>
+											<div>
+												<label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Unit Price</label>
+												<input
+													type="number"
+													bind:value={item.unitPrice}
+													oninput={recalc}
+													min="0"
+													step="0.01"
+													class="w-full px-3 py-2 border border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-white rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent"
+												/>
+											</div>
+										</div>
+										<div class="flex items-center gap-2 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+											<button type="button" onclick={() => moveLineItem(i, -1)} disabled={i === 0} class="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 disabled:opacity-30 cursor-pointer">Move up</button>
+											<button type="button" onclick={() => moveLineItem(i, 1)} disabled={i === lineItems.length - 1} class="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 disabled:opacity-30 cursor-pointer">Move down</button>
+											<button type="button" onclick={() => removeLineItem(i)} disabled={lineItems.length <= 1} class="px-2 py-1 text-xs text-red-500 hover:text-red-700 disabled:opacity-30 cursor-pointer">Remove</button>
+											<div class="flex-1"></div>
+											<button type="button" onclick={() => { expandedLine = null; }} class="px-3 py-1 text-xs font-medium text-brand-600 hover:text-brand-700 cursor-pointer">Done</button>
+										</div>
+									</div>
+								{/if}
+							</div>
+						{/each}
+					</div>
+
+					<!-- Add line -->
+					<div class="px-5 py-3 border-t border-gray-100 dark:border-gray-800">
+						<button type="button" onclick={addLineItem} class="flex items-center gap-1.5 text-sm text-gray-500 hover:text-brand-600 cursor-pointer">
+							<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+							</svg>
+							Add another line item
+						</button>
+					</div>
+
+					<!-- Totals -->
+					<div class="border-t border-gray-200 dark:border-gray-700 px-5 py-2">
+						<div class="flex justify-end gap-4 text-sm">
+							<span class="text-gray-500 dark:text-gray-400">Subtotal</span>
+							<span class="text-gray-700 dark:text-gray-300 tabular-nums w-28 text-right">{currency} {fmt(subtotal)}</span>
+						</div>
+						<div class="flex justify-end gap-4 text-sm mt-1">
+							<span class="text-gray-500 dark:text-gray-400">Tax (15%)</span>
+							<span class="text-gray-700 dark:text-gray-300 tabular-nums w-28 text-right">{currency} {fmt(tax)}</span>
+						</div>
+					</div>
+					<div class="border-t border-gray-200 dark:border-gray-700 px-5 py-3">
+						<div class="flex justify-end gap-4">
+							<span class="font-semibold text-gray-900 dark:text-white">Total</span>
+							<span class="font-semibold text-gray-900 dark:text-white tabular-nums w-28 text-right">{currency} {fmt(total)}</span>
+						</div>
 					</div>
 				</div>
 			</div>
