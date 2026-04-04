@@ -105,6 +105,14 @@
 							>
 								Documents
 							</a>
+							<a
+								href="/admin"
+								class="px-3.5 py-2 text-sm font-medium rounded-lg transition-colors {currentPath.startsWith('/admin')
+									? 'bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300'
+									: 'text-gray-600 hover:text-gray-900 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-800'}"
+							>
+								Admin
+							</a>
 						</nav>
 					</div>
 

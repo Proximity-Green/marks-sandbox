@@ -59,6 +59,16 @@ export function initAuth() {
 	}
 }
 
+// Admin fullscreen toggle
+export const adminFullscreen = writable(false);
+
+// Trigger to refresh recent activity sidebar
+export const refreshActivity = writable(0);
+export function triggerActivityRefresh() { refreshActivity.update(n => n + 1); }
+
+// Open a record in form view
+export const openRecordId = writable<string | null>(null);
+
 // Save auth data to localStorage
 export function saveAuth(token: string, org: OrgInfo) {
 	localStorage.setItem('xero_session_token', token);
