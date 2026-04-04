@@ -162,6 +162,30 @@ export async function getTracking(): Promise<{
 	return data;
 }
 
+// Items catalog from Supabase
+export interface CatalogItem {
+	item_code: string;
+	name: string;
+	gl_code: string;
+	gl_name: string;
+	price: number;
+	tracking_codes: string[];
+	location_name: string;
+	product_type: string;
+}
+
+export async function getItems(): Promise<CatalogItem[]> {
+	const cached = getCached<CatalogItem[]>('catalog_items');
+	if (cached) return cached;
+
+	const rows = await supabaseGet<CatalogItem[]>('items?select=item_code,name,gl_code,gl_name,price,tracking_codes,location_name,product_type&order=name');
+	if (rows && rows.length > 0) {
+		setCache('catalog_items', rows);
+		return rows;
+	}
+	return [];
+}
+
 // Sync accounts & tracking from Xero to Supabase
 export async function syncRefData(): Promise<{ synced: boolean; accounts: number; categories: number; options: number; synced_at: string }> {
 	return request('/admin/sync', { method: 'POST' });

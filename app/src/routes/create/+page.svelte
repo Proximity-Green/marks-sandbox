@@ -6,11 +6,13 @@
 		getCurrencies,
 		getTracking,
 		getAccounts,
+		getItems,
 		createDocument,
 		downloadPdf,
 		sendEmail,
 		sendCustomEmail
 	} from '$lib/api';
+	import type { CatalogItem } from '$lib/api';
 	import SearchSelect from '$lib/SearchSelect.svelte';
 
 	// Types
@@ -29,6 +31,7 @@
 		tracking: Record<string, string>; // categoryId -> optionId
 		quantity: number;
 		unitPrice: number;
+		_catalogItem?: string;    // transient: selected catalog item_code
 	}
 
 	interface TrackingCategory {
@@ -48,6 +51,29 @@
 	let currencies: Array<{ code: string; description: string }> = $state([]);
 	let trackingCategories: TrackingCategory[] = $state([]);
 	let accounts: Account[] = $state([]);
+	let catalogItems: CatalogItem[] = $state([]);
+
+	// Get the selected tracking option name for a line item (used to filter catalog items)
+	function getSelectedLocationCode(item: LineItem): string {
+		for (const cat of trackingCategories) {
+			const optId = item.tracking[cat.id];
+			if (optId) {
+				const opt = cat.options.find(o => o.id === optId);
+				if (opt) return opt.name;
+			}
+		}
+		return '';
+	}
+
+	// Filter catalog items by tracking code
+	// Matches exact code OR base prefix (e.g. "KL-JV2" matches items with "KL")
+	function itemsForLocation(trackingCode: string): CatalogItem[] {
+		if (!trackingCode) return [];
+		const base = trackingCode.split('-')[0]; // "KL-JV2" -> "KL"
+		return catalogItems.filter(ci =>
+			ci.tracking_codes?.some(tc => tc === trackingCode || tc === base || trackingCode === tc)
+		);
+	}
 	let nextId = $state(2);
 
 	let lineItems: LineItem[] = $state([
@@ -67,6 +93,9 @@
 	let dragOverIndex: number | null = $state(null);
 	let isDragging = $state(false);
 	let showEmailModal = $state(false);
+	let showItemModal = $state(false);
+	let itemModalLocation = $state('');
+	let itemModalLineIndex = $state(-1);
 	let emailTo = $state('');
 	let emailSubject = $state('');
 	let emailBody = $state('');
@@ -159,6 +188,7 @@
 		getCurrencies().then(r => currencies = r.currencies || []).catch(e => console.error('Failed to load currencies:', e));
 		getTracking().then(r => trackingCategories = r.categories || []).catch(e => console.error('Failed to load tracking:', e));
 		getAccounts().then(r => accounts = r.accounts || []).catch(e => console.error('Failed to load accounts:', e));
+		getItems().then(r => catalogItems = r).catch(e => console.error('Failed to load items:', e));
 
 		return unsub;
 	});
@@ -436,6 +466,58 @@
 				</div>
 			</div>
 		{/if}
+		{#if showItemModal}
+			<div class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+				<div class="bg-white dark:bg-gray-900 rounded-2xl shadow-xl max-w-3xl w-full max-h-[80vh] flex flex-col">
+					<div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+						<h3 class="text-lg font-semibold text-gray-900 dark:text-white">Items — {itemModalLocation}</h3>
+						<button onclick={() => (showItemModal = false)} class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 cursor-pointer">
+							<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+								<path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+							</svg>
+						</button>
+					</div>
+					<div class="overflow-y-auto flex-1 px-6 py-4">
+						<table class="w-full text-sm">
+							<thead class="text-xs text-gray-500 dark:text-gray-400 uppercase border-b border-gray-200 dark:border-gray-700">
+								<tr>
+									<th class="text-left py-2 pr-3">Name</th>
+									<th class="text-left py-2 pr-3">Code</th>
+									<th class="text-left py-2 pr-3">GL</th>
+									<th class="text-right py-2 pr-3">Price</th>
+									<th class="text-left py-2">Type</th>
+								</tr>
+							</thead>
+							<tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+								{#each itemsForLocation(itemModalLocation) as ci}
+									<tr
+										class="hover:bg-brand-50 dark:hover:bg-brand-900/20 cursor-pointer transition-colors"
+										onclick={() => {
+											if (itemModalLineIndex >= 0 && itemModalLineIndex < lineItems.length) {
+												const ln = lineItems[itemModalLineIndex];
+												ln._catalogItem = ci.item_code;
+												ln.description = ci.name;
+												ln.accountCode = ci.gl_code || '';
+												ln.unitPrice = ci.price || 0;
+												lineItems = [...lineItems];
+												recalc();
+											}
+											showItemModal = false;
+										}}
+									>
+										<td class="py-2 pr-3 text-gray-900 dark:text-white font-medium">{ci.name}</td>
+										<td class="py-2 pr-3 text-gray-500 dark:text-gray-400">{ci.item_code}</td>
+										<td class="py-2 pr-3 text-gray-500 dark:text-gray-400">{ci.gl_code}</td>
+										<td class="py-2 pr-3 text-right tabular-nums text-gray-700 dark:text-gray-300">{ci.price ? fmt(ci.price) : '—'}</td>
+										<td class="py-2 text-gray-400 text-xs">{ci.product_type || ''}</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					</div>
+				</div>
+			</div>
+		{/if}
 		<!-- Create form -->
 		<div class="mb-6">
 			<h1 class="text-2xl font-bold text-gray-900 dark:text-white mb-1">Create Document</h1>
@@ -667,6 +749,52 @@
 								{#if expandedLine === item.id}
 									<div class="px-5 py-4 bg-gray-50/80 dark:bg-gray-800/50 border-t border-gray-100 dark:border-gray-700">
 										<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
+											<!-- Location first -->
+											{#each trackingCategories as cat}
+												<div>
+													<label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{cat.name}</label>
+													<SearchSelect
+														value={item.tracking[cat.id] ?? ''}
+														onchange={(v) => { item.tracking[cat.id] = v; item.tracking = { ...item.tracking }; }}
+														options={cat.options.map(o => ({ value: o.id, label: o.name }))}
+														placeholder="Search {cat.name.toLowerCase()}..."
+													/>
+												</div>
+											{/each}
+											<!-- Catalog Item (filtered by location) -->
+											{#if catalogItems.length > 0}
+												{@const locCode = getSelectedLocationCode(item)}
+												<div>
+													<label class="block text-xs font-medium text-brand-600 dark:text-brand-400 mb-1">Catalog Item</label>
+													<div class="flex items-center gap-1">
+														<div class="flex-1">
+															<SearchSelect
+																value={item._catalogItem ?? ''}
+																onchange={(v) => {
+																	item._catalogItem = v;
+																	const found = catalogItems.find(ci => ci.item_code === v);
+																	if (found) {
+																		item.description = found.name;
+																		item.accountCode = found.gl_code || '';
+																		item.unitPrice = found.price || 0;
+																		recalc();
+																	}
+																}}
+																options={itemsForLocation(locCode).map(ci => ({ value: ci.item_code, label: `${ci.name} (${ci.gl_code})` }))}
+																placeholder={locCode ? `Search items...` : 'Select location first'}
+															/>
+														</div>
+														{#if locCode}
+															<button
+																type="button"
+																onclick={() => { itemModalLocation = locCode; itemModalLineIndex = i; showItemModal = true; }}
+																class="px-2 py-1.5 text-xs text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 cursor-pointer"
+															>Browse</button>
+														{/if}
+													</div>
+												</div>
+											{/if}
+											<!-- Description -->
 											<div class="sm:col-span-2">
 												<label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Description</label>
 												<input
@@ -684,17 +812,6 @@
 													placeholder="Search accounts..."
 												/>
 											</div>
-											{#each trackingCategories as cat}
-												<div>
-													<label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">{cat.name}</label>
-													<SearchSelect
-														value={item.tracking[cat.id] ?? ''}
-														onchange={(v) => { item.tracking[cat.id] = v; item.tracking = { ...item.tracking }; }}
-														options={cat.options.map(o => ({ value: o.id, label: o.name }))}
-														placeholder="Search {cat.name.toLowerCase()}..."
-													/>
-												</div>
-											{/each}
 											<div>
 												<label class="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Quantity</label>
 												<input
