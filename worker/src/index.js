@@ -824,7 +824,7 @@ export default {
       // Send invite email via Mailgun
       if (env.MAILGUN_API_KEY && env.MAILGUN_DOMAIN) {
         const formData = new FormData();
-        formData.append('from', `Proximity Green <postmaster@${env.MAILGUN_DOMAIN}>`);
+        formData.append('from', 'Proximity Green <mark@proximity.green>');
         formData.append('to', normalised);
         formData.append('subject', 'You\'ve been invited to Proximity Green');
         formData.append('html', `
