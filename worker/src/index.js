@@ -798,6 +798,66 @@ export default {
       return jsonResponse({ success: true }, 200, env, request);
     }
 
+    // Invite user — add to allowed_users and send email
+    if (url.pathname === '/invite' && request.method === 'POST') {
+      const body = await request.json();
+      const { email, invited_by } = body;
+      if (!email) return jsonResponse({ error: 'Email is required' }, 400, env, request);
+
+      const normalised = email.trim().toLowerCase();
+
+      // Check already exists
+      const existing = await supabaseRequest(env, 'allowed_users', {
+        method: 'GET',
+        query: `email=eq.${encodeURIComponent(normalised)}&select=email`,
+      });
+      if (existing && existing.length > 0) {
+        return jsonResponse({ error: 'User already has access' }, 409, env, request);
+      }
+
+      // Add to allowed_users
+      await supabaseRequest(env, 'allowed_users', {
+        method: 'POST',
+        body: { email: normalised, name: normalised.split('@')[0] },
+      });
+
+      // Send invite email via Mailgun
+      if (env.MAILGUN_API_KEY && env.MAILGUN_DOMAIN) {
+        const formData = new FormData();
+        formData.append('from', `Proximity Green <postmaster@${env.MAILGUN_DOMAIN}>`);
+        formData.append('to', normalised);
+        formData.append('subject', 'You\'ve been invited to Proximity Green');
+        formData.append('html', `
+          <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 480px; margin: 0 auto; padding: 40px 20px;">
+            <div style="text-align: center; margin-bottom: 32px;">
+              <div style="width: 48px; height: 48px; border-radius: 50%; background: #3d6147; display: inline-flex; align-items: center; justify-content: center;">
+                <div style="width: 18px; height: 18px; border-radius: 50%; background: #7aa882;"></div>
+              </div>
+            </div>
+            <h2 style="color: #18180f; margin: 0 0 12px; font-size: 20px;">You're invited</h2>
+            <p style="color: #706b60; line-height: 1.6; margin: 0 0 24px;">
+              ${invited_by || 'Someone'} has invited you to the <strong>Proximity Green</strong> platform.
+              Sign in with your Google account to get started.
+            </p>
+            <a href="https://xero-app.pages.dev/login" style="display: inline-block; background: #3d6147; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 500;">
+              Sign in
+            </a>
+            <p style="color: #b0a99f; font-size: 13px; margin-top: 32px;">
+              This invite is for ${normalised}. You'll need to sign in with the Google account associated with this email.
+            </p>
+          </div>
+        `);
+
+        await fetch(`https://api.mailgun.net/v3/${env.MAILGUN_DOMAIN}/messages`, {
+          method: 'POST',
+          headers: { Authorization: `Basic ${btoa(`api:${env.MAILGUN_API_KEY}`)}` },
+          body: formData,
+        });
+      }
+
+      return jsonResponse({ success: true, email: normalised }, 200, env, request);
+    }
+
     return jsonResponse({ error: 'Not found' }, 404, env, request);
 
     } catch (err) {

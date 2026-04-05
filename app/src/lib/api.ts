@@ -236,3 +236,10 @@ export async function sendCustomEmail(data: {
 		body: JSON.stringify(data)
 	});
 }
+
+export async function inviteUser(email: string, invited_by: string): Promise<{ success: boolean; email: string }> {
+	return request('/invite', {
+		method: 'POST',
+		body: JSON.stringify({ email, invited_by })
+	});
+}
