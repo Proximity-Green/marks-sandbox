@@ -133,6 +133,55 @@ create trigger tr_documents_audit
   after insert or update or delete on documents
   for each row execute function audit_document_changes();
 
+-- Allowed users (Google email whitelist for Supabase Auth)
+create table allowed_users (
+  id uuid primary key default uuid_generate_v4(),
+  email text not null unique,
+  name text,
+  created_at timestamptz default now()
+);
+
+create index idx_allowed_users_email on allowed_users(email);
+
+-- Notes (polymorphic - can attach to any entity)
+create table notes (
+  id uuid primary key default uuid_generate_v4(),
+  entity_type text not null, -- 'item', 'document', 'contact', etc.
+  entity_id text not null,
+  content text not null,
+  mentions text[] default '{}', -- array of mentioned user emails
+  created_by text not null,
+  created_at timestamptz default now()
+);
+
+create index idx_notes_entity on notes(entity_type, entity_id);
+create index idx_notes_created on notes(created_at desc);
+
+-- Tags (user-created, reusable across entities)
+create table tags (
+  id uuid primary key default uuid_generate_v4(),
+  name text not null unique,
+  color text not null default '#3b82f6', -- hex color
+  created_by text,
+  created_at timestamptz default now()
+);
+
+create index idx_tags_name on tags(name);
+
+-- Entity-tag assignments (polymorphic junction)
+create table entity_tags (
+  id uuid primary key default uuid_generate_v4(),
+  entity_type text not null,
+  entity_id text not null,
+  tag_id uuid not null references tags(id) on delete cascade,
+  created_by text,
+  created_at timestamptz default now(),
+  unique(entity_type, entity_id, tag_id)
+);
+
+create index idx_entity_tags_entity on entity_tags(entity_type, entity_id);
+create index idx_entity_tags_tag on entity_tags(tag_id);
+
 -- Row Level Security (prep for multi-user)
 alter table xero_connections enable row level security;
 alter table contacts enable row level security;
@@ -147,3 +196,15 @@ create policy "Allow all for service role" on contacts for all using (true);
 create policy "Allow all for service role" on documents for all using (true);
 create policy "Allow all for service role" on line_items for all using (true);
 create policy "Allow all for service role" on audit_log for all using (true);
+
+alter table allowed_users enable row level security;
+create policy "Allow all for service role" on allowed_users for all using (true);
+
+alter table notes enable row level security;
+create policy "Allow all for service role" on notes for all using (true);
+
+alter table tags enable row level security;
+create policy "Allow all for service role" on tags for all using (true);
+
+alter table entity_tags enable row level security;
+create policy "Allow all for service role" on entity_tags for all using (true);

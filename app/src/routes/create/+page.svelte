@@ -173,12 +173,6 @@
 	);
 
 	onMount(async () => {
-		const unsub = auth.subscribe((state) => {
-			if (!state.loading && !state.authenticated) {
-				goto('/');
-			}
-		});
-
 		// Set default due date to 30 days from now
 		const due = new Date();
 		due.setDate(due.getDate() + 30);
@@ -189,8 +183,6 @@
 		getTracking().then(r => trackingCategories = r.categories || []).catch(e => console.error('Failed to load tracking:', e));
 		getAccounts().then(r => accounts = r.accounts || []).catch(e => console.error('Failed to load accounts:', e));
 		getItems().then(r => catalogItems = r).catch(e => console.error('Failed to load items:', e));
-
-		return unsub;
 	});
 
 	function addLineItem() {

@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { auth } from '$lib/stores';
-	import { goto } from '$app/navigation';
 	import { listDocuments, downloadPdf } from '$lib/api';
 
 	type TabType = 'invoices' | 'quotes' | 'purchaseorders';
@@ -21,14 +20,7 @@
 	];
 
 	onMount(() => {
-		const unsub = auth.subscribe((state) => {
-			if (!state.loading && !state.authenticated) {
-				goto('/');
-			}
-		});
-
 		loadDocuments();
-		return unsub;
 	});
 
 	async function loadDocuments() {

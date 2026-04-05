@@ -3,16 +3,17 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-	--color-brand-50: oklch(0.97 0.02 240);
-	--color-brand-100: oklch(0.93 0.04 240);
-	--color-brand-200: oklch(0.87 0.07 240);
-	--color-brand-300: oklch(0.78 0.11 240);
-	--color-brand-400: oklch(0.68 0.15 240);
-	--color-brand-500: oklch(0.55 0.18 240);
-	--color-brand-600: oklch(0.47 0.18 240);
-	--color-brand-700: oklch(0.40 0.16 240);
-	--color-brand-800: oklch(0.34 0.13 240);
-	--color-brand-900: oklch(0.28 0.10 240);
+	/* Proximity Green brand: moss #3d6147, sage #7aa882 */
+	--color-brand-50: #f0f5f1;
+	--color-brand-100: #dce8de;
+	--color-brand-200: #c8dbc9;
+	--color-brand-300: #a3c5a8;
+	--color-brand-400: #7aa882;
+	--color-brand-500: #548a5e;
+	--color-brand-600: #3d6147;
+	--color-brand-700: #325139;
+	--color-brand-800: #29412f;
+	--color-brand-900: #1e3122;
 	--font-sans: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
@@ -23,11 +24,11 @@ html {
 }
 
 body {
-	background-color: oklch(0.975 0.005 240);
+	background-color: #faf7f0;
 }
 
 .dark body {
-	background-color: oklch(0.15 0.01 240);
+	background-color: #18180f;
 }
 
 /* Hide number input spinners */

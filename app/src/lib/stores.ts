@@ -1,10 +1,34 @@
 import { writable } from 'svelte/store';
+import type { User } from '@supabase/supabase-js';
 
 export interface OrgInfo {
 	orgName: string;
 	orgId: string;
 	shortCode: string;
 }
+
+// Supabase Auth user store
+function createUserStore() {
+	const { subscribe, set } = writable<{
+		user: User | null;
+		loading: boolean;
+	}>({
+		user: null,
+		loading: true
+	});
+
+	return {
+		subscribe,
+		setUser(user: User | null) {
+			set({ user, loading: false });
+		},
+		setLoading() {
+			set({ user: null, loading: true });
+		}
+	};
+}
+
+export const sbUser = createUserStore();
 
 function createAuthStore() {
 	const { subscribe, set, update } = writable<{

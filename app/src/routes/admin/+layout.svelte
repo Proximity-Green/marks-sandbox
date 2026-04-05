@@ -9,10 +9,12 @@
 
 	const tables = [
 		{ name: 'Items', href: '/admin/items', icon: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4' },
-		{ name: 'Accounts', href: '/admin/accounts', icon: 'M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z' },
-		{ name: 'Contacts', href: '/admin/contacts', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z' },
-		{ name: 'Documents', href: '/admin/documents', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z' },
-		{ name: 'Tracking', href: '/admin/tracking', icon: 'M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z' },
+		{ name: 'Accounts', href: '', icon: 'M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z', soon: true },
+		{ name: 'Contacts', href: '', icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z', soon: true },
+		{ name: 'Documents', href: '', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', soon: true },
+		{ name: 'Tracking', href: '', icon: 'M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z', soon: true },
+		{ name: 'Notes', href: '/admin/notes', icon: 'M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z' },
+		{ name: 'Tags', href: '/admin/tags', icon: 'M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z' },
 	];
 
 	interface RecentEntry {
@@ -100,17 +102,30 @@
 			<nav class="w-52 shrink-0">
 				<div class="space-y-1 mb-6">
 					{#each tables as t}
-						<a
-							href={t.href}
-							class="flex items-center gap-2.5 px-3 py-2 text-sm font-medium rounded-lg transition-colors {currentPath.startsWith(t.href)
-								? 'bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300'
-								: 'text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-800'}"
-						>
-							<svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-								<path stroke-linecap="round" stroke-linejoin="round" d={t.icon} />
-							</svg>
-							{t.name}
-						</a>
+						{#if t.soon}
+							<span
+								class="flex items-center gap-2.5 px-3 py-2 text-sm font-medium rounded-lg text-gray-300 dark:text-gray-600 cursor-default"
+								title="Coming soon"
+							>
+								<svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+									<path stroke-linecap="round" stroke-linejoin="round" d={t.icon} />
+								</svg>
+								{t.name}
+								<span class="text-[10px] ml-auto opacity-60">soon</span>
+							</span>
+						{:else}
+							<a
+								href={t.href}
+								class="flex items-center gap-2.5 px-3 py-2 text-sm font-medium rounded-lg transition-colors {currentPath.startsWith(t.href)
+									? 'bg-brand-50 text-brand-700 dark:bg-brand-900/30 dark:text-brand-300'
+									: 'text-gray-600 hover:text-gray-900 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-white dark:hover:bg-gray-800'}"
+							>
+								<svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+									<path stroke-linecap="round" stroke-linejoin="round" d={t.icon} />
+								</svg>
+								{t.name}
+							</a>
+						{/if}
 					{/each}
 				</div>
 

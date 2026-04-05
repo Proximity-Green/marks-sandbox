@@ -4,7 +4,10 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/stores';
 	import SearchSelect from '$lib/SearchSelect.svelte';
-	import { adminFullscreen, triggerActivityRefresh, openRecordId } from '$lib/stores';
+	import { adminFullscreen, triggerActivityRefresh, openRecordId, sbUser } from '$lib/stores';
+	import { get } from 'svelte/store';
+	import Notes from '$lib/Notes.svelte';
+	import Tags from '$lib/Tags.svelte';
 
 	interface Item {
 		id: string;
@@ -68,12 +71,12 @@
 
 	// User identity for audit
 	function getUser(): string {
-		let user = localStorage.getItem('admin_user');
-		if (!user) {
-			user = prompt('Enter your name for the audit log:') || 'unknown';
-			localStorage.setItem('admin_user', user);
+		const sbState = get(sbUser);
+		if (sbState.user) {
+			const meta = sbState.user.user_metadata;
+			return meta?.full_name || meta?.name || sbState.user.email || 'unknown';
 		}
-		return user;
+		return 'unknown';
 	}
 
 	interface ChangeEntry {
@@ -429,6 +432,13 @@
 						</div>
 					{/each}
 				</div>
+
+				{#if !formIsNew && formItem.id}
+					<div class="mt-6 pt-5 border-t border-gray-200 dark:border-gray-700 grid grid-cols-1 sm:grid-cols-2 gap-6">
+						<Tags entityType="item" entityId={formItem.id} />
+						<Notes entityType="item" entityId={formItem.id} />
+					</div>
+				{/if}
 			</div>
 			<div class="flex justify-between items-center px-6 py-4 border-t border-gray-200 dark:border-gray-700">
 				<div class="flex items-center gap-3">
