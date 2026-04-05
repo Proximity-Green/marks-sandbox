@@ -1,0 +1,492 @@
+openapi: 3.1.0
+info:
+  title: Xero Documents Worker API
+  description: Cloudflare Worker that proxies Xero API for creating and managing invoices, quotes, and purchase orders.
+  version: 1.0.0
+  contact:
+    name: Proximity Green
+
+servers:
+  - url: https://xero-invoice-worker.mark-442.workers.dev
+    description: Production
+
+security:
+  - bearerAuth: []
+
+paths:
+  /auth/connect:
+    get:
+      summary: Start Xero OAuth flow
+      description: Redirects the user to Xero's authorization page. No authentication required.
+      operationId: authConnect
+      security: []
+      responses:
+        "302":
+          description: Redirect to Xero login
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+
+  /auth/callback:
+    get:
+      summary: OAuth callback from Xero
+      description: Handles the OAuth authorization code exchange. Called by Xero after user authorizes. Redirects to frontend with session token.
+      operationId: authCallback
+      security: []
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Authorization code from Xero
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+          description: CSRF state parameter
+      responses:
+        "302":
+          description: Redirect to frontend with session ID
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+        "400":
+          description: Missing or invalid code/state
+          content:
+            text/plain:
+              schema:
+                type: string
+        "500":
+          description: Token exchange failed
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /auth/status:
+    get:
+      summary: Check authentication status
+      description: Returns whether the current session is authenticated and the connected Xero org details.
+      operationId: authStatus
+      responses:
+        "200":
+          description: Authentication status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  authenticated:
+                    type: boolean
+                  shortCode:
+                    type: string
+                    description: Xero organisation short code
+                  orgName:
+                    type: string
+                    description: Xero organisation name
+                required:
+                  - authenticated
+
+  /currencies:
+    get:
+      summary: List available currencies
+      description: Returns currencies configured in the connected Xero organisation.
+      operationId: listCurrencies
+      responses:
+        "200":
+          description: List of currencies
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  currencies:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Currency"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /tracking:
+    get:
+      summary: List tracking categories
+      description: Returns tracking categories and their options from the connected Xero organisation.
+      operationId: listTracking
+      responses:
+        "200":
+          description: List of tracking categories
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  categories:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/TrackingCategory"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /list:
+    get:
+      summary: List documents
+      description: Returns invoices (draft only), quotes, or purchase orders from Xero, ordered by date descending.
+      operationId: listDocuments
+      parameters:
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [invoice, quote, po]
+          description: Document type to list
+      responses:
+        "200":
+          description: List of documents
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/DocumentSummary"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /create:
+    post:
+      summary: Create a document
+      description: Creates a draft invoice, quote, or purchase order in Xero. For purchase orders, the contact is looked up or created automatically.
+      operationId: createDocument
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDocumentRequest"
+      responses:
+        "200":
+          description: Document created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateDocumentResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /pdf:
+    get:
+      summary: Download document PDF
+      description: Downloads the PDF version of an invoice, quote, or purchase order from Xero.
+      operationId: downloadPdf
+      parameters:
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Xero document ID
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [invoice, quote, po]
+          description: Document type
+      responses:
+        "200":
+          description: PDF file
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /email:
+    post:
+      summary: Send document via Xero
+      description: Sends the document to the contact's email address using Xero's built-in email functionality.
+      operationId: emailViaXero
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                  description: Xero document ID
+                type:
+                  type: string
+                  enum: [invoice, quote, po]
+                email:
+                  type: string
+                  format: email
+                  description: Recipient email (for client-side validation only; Xero uses the contact's email)
+              required:
+                - id
+                - type
+      responses:
+        "200":
+          description: Email sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /email-custom:
+    post:
+      summary: Send document PDF via Mailgun
+      description: Downloads the PDF from Xero and sends it as an email attachment via Mailgun to any email address.
+      operationId: emailViaMailgun
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+                  format: uuid
+                  description: Xero document ID
+                type:
+                  type: string
+                  enum: [invoice, quote, po]
+                to:
+                  type: string
+                  format: email
+                  description: Recipient email address
+                subject:
+                  type: string
+                  description: Email subject line
+                message:
+                  type: string
+                  description: Email body text
+              required:
+                - id
+                - type
+                - to
+      responses:
+        "200":
+          description: Email sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Session ID returned after OAuth flow (passed as `Authorization: Bearer <session_id>`)
+
+  schemas:
+    Currency:
+      type: object
+      properties:
+        Code:
+          type: string
+          example: ZAR
+        Description:
+          type: string
+          example: South African Rand
+
+    TrackingCategory:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: Region
+        options:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+              name:
+                type: string
+                example: Gauteng
+
+    DocumentSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        number:
+          type: string
+          example: INV-0001
+        contact:
+          type: string
+          example: Acme Corp
+        date:
+          type: string
+          format: date
+        total:
+          type: number
+          format: double
+          example: 1500.00
+        currency:
+          type: string
+          example: ZAR
+        status:
+          type: string
+          enum: [DRAFT, AUTHORISED, SENT, PAID, VOIDED, DELETED, ACCEPTED, DECLINED]
+
+    CreateDocumentRequest:
+      type: object
+      properties:
+        docType:
+          type: string
+          enum: [invoice, quote, po]
+        contact:
+          type: object
+          properties:
+            name:
+              type: string
+              example: Acme Corp
+            email:
+              type: string
+              format: email
+              example: billing@acme.com
+          required:
+            - name
+        date:
+          type: string
+          format: date
+          example: "2026-04-05"
+        dueDate:
+          type: string
+          format: date
+          example: "2026-05-05"
+        reference:
+          type: string
+          example: INV-1234
+        currencyCode:
+          type: string
+          example: ZAR
+        authorise:
+          type: boolean
+          default: false
+          description: If true, invoice is created as AUTHORISED instead of DRAFT (invoices only)
+        lineItems:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            properties:
+              description:
+                type: string
+                example: Web Development
+              accountCode:
+                type: string
+                example: "200"
+              quantity:
+                type: number
+                example: 5
+              unitAmount:
+                type: number
+                format: double
+                example: 150.00
+              tracking:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    categoryId:
+                      type: string
+                      format: uuid
+                    optionId:
+                      type: string
+                      format: uuid
+            required:
+              - description
+              - quantity
+              - unitAmount
+      required:
+        - docType
+        - contact
+        - date
+        - dueDate
+        - lineItems
+
+    CreateDocumentResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        id:
+          type: string
+          format: uuid
+        number:
+          type: string
+          example: INV-0001
+        docType:
+          type: string
+          enum: [invoice, quote, po]
+
+    SuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+
+  responses:
+    Unauthorized:
+      description: Not authenticated or session expired
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            error: Not authenticated
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
